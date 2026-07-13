@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ spec.service.name }}
+  namespace: {{ spec.deploy.namespace }}
+spec:
+  replicas: {{ spec.deploy.replicas }}
+  selector:
+    matchLabels:
+      app: {{ spec.service.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ spec.service.name }}
+    spec:
+      containers:
+        - name: {{ spec.service.name }}
+          image: ghcr.io/{{ spec.repo.owner }}/{{ spec.repo.name }}:latest
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: {{ spec.exposure.health_path }}
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: {{ spec.exposure.health_path }}
+              port: 8080

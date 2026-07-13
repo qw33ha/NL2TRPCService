@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ spec.service.name }}
+  namespace: {{ spec.deploy.namespace }}
+  annotations:
+    kubernetes.io/ingress.class: {{ spec.exposure.ingress_class }}
+spec:
+  ingressClassName: {{ spec.exposure.ingress_class }}
+  rules:
+    - host: {{ spec.exposure.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ spec.service.name }}
+                port:
+                  number: 80

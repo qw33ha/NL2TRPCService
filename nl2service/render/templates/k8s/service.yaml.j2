@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ spec.service.name }}
+  namespace: {{ spec.deploy.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ spec.service.name }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

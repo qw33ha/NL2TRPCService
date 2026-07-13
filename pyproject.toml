@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nl2service"
+version = "0.1.0"
+description = "Natural-language to service delivery scaffolding for tRPC-Go services."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "jinja2>=3.1",
+  "langchain-core>=0.3",
+  "langchain-openai>=0.3",
+  "langgraph>=0.2",
+  "pydantic>=2.8",
+  "pyyaml>=6.0",
+  "typer>=0.12",
+]
+
+[project.scripts]
+nl2service = "nl2service.cli:app"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["nl2service*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

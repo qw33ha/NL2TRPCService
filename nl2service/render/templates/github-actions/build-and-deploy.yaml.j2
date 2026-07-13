@@ -1,0 +1,46 @@
+name: build-and-deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ '{{' }} github.repository {{ '}}' }}:${{ '{{' }} github.sha {{ '}}' }}
+      NAMESPACE: {{ spec.deploy.namespace }}
+      APP_NAME: {{ spec.service.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - run: go test ./...
+      - run: go build ./...
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ '{{' }} github.actor {{ '}}' }}
+          password: ${{ '{{' }} secrets.GITHUB_TOKEN {{ '}}' }}
+      - run: docker build -t "$IMAGE" .
+      - run: docker push "$IMAGE"
+      - uses: azure/setup-kubectl@v4
+      - name: Write kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          printf '%s' "${{ '{{' }} secrets.{{ spec.deploy.kubeconfig_secret }} {{ '}}' }}" > "$HOME/.kube/config"
+      - run: kubectl apply -f k8s/
+      - run: kubectl set image deployment/$APP_NAME $APP_NAME=$IMAGE -n $NAMESPACE
+      - run: kubectl rollout status deployment/$APP_NAME -n $NAMESPACE --timeout=180s
+{% if spec.exposure.type == "ingress" %}
+      - run: curl --fail --retry 10 --retry-delay 5 https://{{ spec.exposure.host }}{{ spec.exposure.health_path }}
+{% elif spec.exposure.type == "loadBalancer" %}
+      - run: kubectl get svc {{ spec.service.name }}-lb -n $NAMESPACE -o wide
+{% else %}
+      - run: kubectl run smoke --rm -i --restart=Never --image=curlimages/curl -- curl --fail http://{{ spec.service.name }}.{{ spec.deploy.namespace }}.svc.cluster.local{{ spec.exposure.health_path }}
+{% endif %}
