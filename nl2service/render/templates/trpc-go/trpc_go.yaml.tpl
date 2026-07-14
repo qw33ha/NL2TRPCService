@@ -5,11 +5,22 @@ service:
 global:
   namespace: ${TRPC_NAMESPACE:-default}
   env_name: ${TRPC_ENV:-dev}
+  container_name: ${POD_NAME}
+  local_ip: ${POD_IP}
+  admin_port: 10001
+  enable_set: N
+
 
 server:
   app: {{ app }}
   server: {{ server }}
+  bin_path: /usr/local/trpc/bin/
+  conf_path: /usr/local/trpc/conf/
+  data_path: /usr/local/trpc/data/
+  close_wait_time: 1000
+  max_close_wait_time: 2000
   service:
+{% if rpc_enabled %}
     - name: {{ trpc_service_name }}
       ip: 0.0.0.0
       port: {{ trpc_port | default(9000) }}
@@ -17,6 +28,16 @@ server:
       protocol: trpc
       timeout: 1000
       idle_timeout: 10000
+{% endif %}
+{% if http_enabled %}
+    - name: {{ http_service_name }}
+      ip: 0.0.0.0
+      port: {{ http_port | default(8080) }}
+      network: tcp
+      protocol: http_no_protocol
+      timeout: 1000
+      idle_timeout: 10000
+{% endif %}
 {% if kafka_consumer_enabled %}
     - name: {{ kafka_service_name }}
       address: {{ kafka_producer_brokers }}
@@ -41,7 +62,3 @@ client:
       target: kafka://{{ kafka_producer_brokers }}
       timeout: 1000
 {% endif %}
-
-http:
-  port: {{ http_port | default(8080) }}
-  health_path: {{ health_path }}

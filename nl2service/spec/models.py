@@ -10,12 +10,14 @@ from nl2service.spec.defaults import (
     DEFAULT_KUBECONFIG_SECRET,
     DEFAULT_REPLICAS,
     DEFAULT_RUNTIME,
+    DEFAULT_SERVICE_MODE,
 )
 
 
 class ServiceConfig(BaseModel):
     name: str | None = None
     runtime: str = DEFAULT_RUNTIME
+    mode: Literal["http", "rpc", "hybrid"] = DEFAULT_SERVICE_MODE
     module: str | None = None
     proto_file: str | None = None
 

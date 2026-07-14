@@ -1,11 +1,33 @@
 {% if kafka_producer_enabled %}
 package handler
 
-import trpckafka "trpc.group/trpc-go/trpc-database/kafka"
+import (
+	"context"
+	"encoding/json"
 
-const KafkaProducerServiceName = "{{ kafka_service_name }}"
+	"trpc.group/trpc-go/trpc-database/kafka"
+)
 
-func NewKafkaProducerProxy() any {
-	return trpckafka.NewClientProxy(KafkaProducerServiceName)
+type KafkaProducer struct {
+	cli kafka.Client
+}
+
+func NewKafkaProducer() *KafkaProducer {
+	return &KafkaProducer{
+		cli: kafka.NewClientProxy("trpc.kafka.{{ group }}.{{ app }}.{{ server }}"),
+	}
+}
+
+func (p *KafkaProducer) Send(ctx context.Context, key string, value interface{}) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	if err := p.cli.Produce(ctx, []byte(key), data); err != nil {
+		log.Errorf("kafka produce failed topic={{ kafka_producer_topic }} key=%s err=%v", key, err)
+		return err
+	}
+	log.Infof("kafka produce success topic={{ kafka_producer_topic }} key=%s", key)
+	return nil
 }
 {% endif %}

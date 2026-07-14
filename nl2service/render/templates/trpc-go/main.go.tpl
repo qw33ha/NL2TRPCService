@@ -1,16 +1,16 @@
 package main
 
 import (
-	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
-{% if rpc_enabled or kafka_consumer_enabled %}
+{% if rpc_enabled or http_enabled or kafka_consumer_enabled %}
 
 	trpc "trpc.group/trpc-go/trpc-go"
 	trpclog "trpc.group/trpc-go/trpc-go/log"
+{% endif %}
+{% if http_enabled %}
+	thttp "trpc.group/trpc-go/trpc-go/http"
 {% endif %}
 {% if kafka_consumer_enabled %}
 	trpckafka "trpc.group/trpc-go/trpc-database/kafka"
@@ -30,8 +30,10 @@ func main() {
 {% if kafka_producer_enabled %}
 	initKafkaProducer()
 {% endif %}
+{% if rpc_enabled %}
 	serviceHandler := handler.New{{ handler_type_name }}()
-{% if rpc_enabled or kafka_consumer_enabled %}
+{% endif %}
+{% if rpc_enabled or http_enabled or kafka_consumer_enabled %}
 	s := trpc.NewServer()
 {% endif %}
 {% if rpc_enabled %}
@@ -40,13 +42,20 @@ func main() {
 {% if kafka_consumer_enabled %}
 	registerKafkaConsumers(s)
 {% endif %}
-{% if rpc_enabled or kafka_consumer_enabled %}
-	go serveTRPC(s)
+{% if native_http_enabled %}
+	httpHandler := handler.NewHTTPHandler()
+	httpHandler.Register()
+	thttp.RegisterNoProtocolService(s.Service("{{ http_service_name }}"))
+{% elif http_enabled %}
+	httpHandler := handler.NewHTTPHandler(serviceHandler)
+	httpHandler.Register()
+	thttp.RegisterNoProtocolService(s.Service("{{ http_service_name }}"))
 {% endif %}
-{% if http_enabled %}
-	go serveHTTP(serviceHandler)
-{% endif %}
+{% if rpc_enabled or http_enabled or kafka_consumer_enabled %}
+	serveTRPC(s)
+{% else %}
 	waitForShutdown()
+{% endif %}
 }
 {% if db_enabled %}
 
@@ -73,31 +82,12 @@ func registerKafkaConsumers(s *trpc.Server) {
 	trpckafka.RegisterKafkaHandlerService(s.Service("{{ kafka_service_name }}"), handler.HandleKafkaMessage)
 }
 {% endif %}
-{% if rpc_enabled or kafka_consumer_enabled %}
+{% if rpc_enabled or http_enabled or kafka_consumer_enabled %}
 
 func serveTRPC(s *trpc.Server) {
 	trpclog.Infof("starting %s trpc runtime", serviceName)
 	if err := s.Serve(); err != nil {
 		trpclog.Error(err)
-	}
-}
-{% endif %}
-{% if http_enabled %}
-
-func serveHTTP(serviceHandler *handler.{{ handler_type_name }}) {
-	port := getenv("PORT", "8080")
-	mux := http.NewServeMux()
-	handler.NewHTTPHandler(serviceHandler).Register(mux)
-
-	srv := &http.Server{
-		Addr:              ":" + port,
-		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-
-	log.Printf("starting %s http bridge on :%s", serviceName, port)
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("http server failed: %v", err)
 	}
 }
 {% endif %}

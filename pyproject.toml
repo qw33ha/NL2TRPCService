@@ -18,6 +18,9 @@ dependencies = [
   "typer>=0.12",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
 [project.scripts]
 nl2service = "nl2service.cli:app"
 

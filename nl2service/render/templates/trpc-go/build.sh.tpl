@@ -1,5 +1,5 @@
 #!/bin/bash
 set -e
 
-bash scripts/generate_stub.sh
-sh devops_build.sh
+{% if rpc_enabled %}bash scripts/generate_stub.sh
+{% endif %}sh devops_build.sh

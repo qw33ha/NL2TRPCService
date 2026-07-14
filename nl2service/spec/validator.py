@@ -54,7 +54,7 @@ class ServiceSpecValidator:
             result.issues.append(ValidationIssue("service.module", "Go module path is required."))
         if spec.service.runtime != "trpc-go":
             result.issues.append(ValidationIssue("service.runtime", "MVP currently supports only trpc-go runtime."))
-        if require_proto:
+        if require_proto and spec.service.mode in {"rpc", "hybrid"}:
             if not spec.service.proto_file:
                 result.issues.append(
                     ValidationIssue(

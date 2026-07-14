@@ -44,7 +44,7 @@ class ServiceRenderer:
         return self._load_proto_contract(spec)
 
     def render_tree(self, spec: ServiceSpec) -> dict[str, str]:
-        contract = self._load_proto_contract(spec)
+        contract = None if spec.service.mode == "http" else self._load_proto_contract(spec)
         context = self._build_context(spec, contract)
         files = {
             "go.mod": self._render("trpc-go/go.mod.tpl", context),
@@ -54,15 +54,16 @@ class ServiceRenderer:
             "build.sh": self._render("trpc-go/build.sh.tpl", context),
             "devops_build.sh": self._render("trpc-go/devops_build.sh.tpl", context),
             "start.sh": self._render("trpc-go/start.sh.tpl", context),
-            "handler/handler.go": self._render("trpc-go/handler/handler.go.tpl", context),
-            f"proto/{context['proto_output_name']}": contract.contents,
-            "scripts/generate_stub.sh": self._render("trpc-go/scripts/generate_stub.sh.tpl", context),
-            "pb/README.md": self._render("trpc-go/pb/README.md.tpl", context),
             ".github/workflows/build-and-deploy.yaml": self._render("github-actions/build-and-deploy.yaml.j2", {"spec": spec}),
             "k8s/deployment.yaml": self._render("k8s/deployment.yaml.j2", {"spec": spec}),
             "k8s/service.yaml": self._render("k8s/service.yaml.j2", {"spec": spec}),
             "README.md": self._build_readme(spec, context),
         }
+        if contract is not None:
+            files["handler/handler.go"] = self._render("trpc-go/handler/handler.go.tpl", context)
+            files[f"proto/{context['proto_output_name']}"] = contract.contents
+            files["scripts/generate_stub.sh"] = self._render("trpc-go/scripts/generate_stub.sh.tpl", context)
+            files["pb/README.md"] = self._render("trpc-go/pb/README.md.tpl", context)
         if context["http_enabled"]:
             files["handler/http_handler.go"] = self._render("trpc-go/handler/http_handler.go.tpl", context)
         if context["db_enabled"]:
@@ -90,8 +91,8 @@ class ServiceRenderer:
         template = self.env.get_template(template_name)
         return template.render(**context)
 
-    def _build_context(self, spec: ServiceSpec, contract: ProtoContract) -> dict[str, Any]:
-        service_name = self._slug(spec.service.name or spec.repo.name or contract.service_name or "service")
+    def _build_context(self, spec: ServiceSpec, contract: ProtoContract | None) -> dict[str, Any]:
+        service_name = self._slug(spec.service.name or spec.repo.name or (contract.service_name if contract else None) or "service")
         owner = self._slug(spec.repo.owner or "team")
         repo_name = self._slug(spec.repo.name or service_name)
         module_path = (spec.service.module or f"github.com/{owner}/{repo_name}").strip()
@@ -100,7 +101,7 @@ class ServiceRenderer:
         db_enabled = bool(spec.database.enabled and db_type)
         kafka_enabled = bool(spec.kafka.enabled)
         rpc_methods: list[dict[str, str]] = []
-        for index, method in enumerate(contract.methods):
+        for index, method in enumerate(contract.methods if contract else []):
             endpoint = spec.endpoints[index] if index < len(spec.endpoints) else None
             rpc_methods.append(
                 {
@@ -111,13 +112,16 @@ class ServiceRenderer:
                     "response_description": (endpoint.response_description if endpoint else None) or "Response payload defined by the provided .proto contract.",
                 }
             )
-        http_apis = [
-            self._http_api_from_endpoint(endpoint, rpc_method)
-            for endpoint, rpc_method in zip(spec.endpoints, rpc_methods)
-        ]
+        if spec.service.mode == "http":
+            http_apis = [self._native_http_api(endpoint, index) for index, endpoint in enumerate(spec.endpoints)]
+        else:
+            http_apis = [
+                self._http_api_from_endpoint(endpoint, rpc_method)
+                for endpoint, rpc_method in zip(spec.endpoints, rpc_methods)
+            ] if spec.service.mode == "hybrid" else []
         normalized_name = service_name.replace("-", "_")
-        handler_type_name = f"{contract.service_name}Handler"
-        service_prefix = f"trpc.{contract.package}"
+        handler_type_name = f"{contract.service_name}Handler" if contract else "HTTPHandler"
+        service_prefix = f"trpc.{contract.package}" if contract else f"trpc.{owner}.{repo_name}"
 
         return {
             "module_path": module_path,
@@ -125,14 +129,17 @@ class ServiceRenderer:
             "app": repo_name,
             "server": service_name,
             "server_bin": service_name,
-            "proto_package": contract.package,
-            "proto_output_name": contract.source_path.name,
-            "proto_source_path": str(contract.source_path),
-            "rpc_enabled": bool(contract.methods),
-            "rpc_service_name": contract.service_name,
+            "service_mode": spec.service.mode,
+            "proto_package": contract.package if contract else None,
+            "proto_output_name": contract.source_path.name if contract else None,
+            "proto_source_path": str(contract.source_path) if contract else None,
+            "rpc_enabled": bool(contract and contract.methods),
+            "rpc_service_name": contract.service_name if contract else None,
             "rpc_methods": rpc_methods,
             "handler_type_name": handler_type_name,
-            "trpc_service_name": f"{service_prefix}.{contract.service_name}",
+            "trpc_service_name": f"{service_prefix}.{contract.service_name}" if contract else f"{service_prefix}.http",
+            "http_service_name": f"{service_prefix}.http",
+            "native_http_enabled": spec.service.mode == "http",
             "http_enabled": bool(http_apis),
             "http_apis": http_apis,
             "http_port": 8080,
@@ -166,30 +173,34 @@ class ServiceRenderer:
             f"- module: `{context['module_path']}`",
             f"- trpc service: `{context['trpc_service_name']}`",
             f"- handler type: `{context['handler_type_name']}`",
-            "",
-            "## Contract",
-            f"- source proto: `{context['proto_source_path']}`",
-            f"- copied proto: `proto/{context['proto_output_name']}`",
+            f"- service mode: `{spec.service.mode}`",
             "",
             "## Generated Assets",
-            "- `scripts/generate_stub.sh`: runs `trpc create --rpconly` against the user-provided `.proto` to generate pb stubs into `pb/`",
-            "- `handler/handler.go`: business implementation of the generated tRPC service interface",
-            "- `handler/http_handler.go`: HTTP wrapper that reuses the same business handler when HTTP endpoints are requested",
             "",
             "## Exposure",
             f"- type: `{spec.exposure.type}`",
             f"- health path: `{spec.exposure.health_path}`",
         ]
+        if context["rpc_enabled"]:
+            lines[9:9] = [
+                "## Contract",
+                f"- source proto: `{context['proto_source_path']}`",
+                f"- copied proto: `proto/{context['proto_output_name']}`",
+                "",
+            ]
+            lines.append("- `handler/handler.go`: business implementation of the generated tRPC service interface")
+        if context["native_http_enabled"]:
+            lines.append("- `handler/http_handler.go`: native tRPC-Go HTTP handlers; no protobuf bridge is required")
         if spec.exposure.host:
             lines.append(f"- host: `{spec.exposure.host}`")
         lines.extend(
             [
                 "",
                 "## Notes",
-                "- Formal tRPC generation in this project requires a user-provided `.proto` contract.",
+                "- RPC and hybrid modes require a user-provided `.proto` contract; HTTP mode does not.",
                 "- The generated Go code is aligned to the public `trpc-group/trpc-go` and `trpc-ecosystem/go-database` import space.",
                 "- Build scripts generate pb stubs before `go build`, so the generated project uses the provided protocol as the source of truth.",
-                "- HTTP endpoints, when requested, are implemented as a thin wrapper over the same handler rather than as the only business entrypoint.",
+                "- Native HTTP mode uses the public tRPC-Go `http_no_protocol` adapter.",
             ]
         )
         return "\n".join(lines) + "\n"
@@ -242,6 +253,17 @@ class ServiceRenderer:
             "rpc_name": rpc_method["name"],
             "request_message": rpc_method["request_message"],
             "response_message": rpc_method["response_message"],
+        }
+
+    def _native_http_api(self, endpoint: EndpointSpec, index: int) -> dict[str, str]:
+        words = re.findall(r"[A-Za-z0-9]+", endpoint.path)
+        path_name = "".join(word[:1].upper() + word[1:] for word in words)
+        return {
+            "path": endpoint.path,
+            "method": endpoint.method,
+            "request_description": endpoint.request_description or "JSON request body",
+            "response_description": endpoint.response_description or "JSON response body",
+            "handler_name": path_name or f"Endpoint{index + 1}",
         }
 
     def _slug(self, value: str) -> str:

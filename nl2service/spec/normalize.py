@@ -9,6 +9,7 @@ from nl2service.spec.defaults import (
     DEFAULT_KUBECONFIG_SECRET,
     DEFAULT_REPLICAS,
     DEFAULT_RUNTIME,
+    DEFAULT_SERVICE_MODE,
 )
 from nl2service.spec.models import ServiceSpec
 
@@ -35,6 +36,7 @@ class ServiceSpecNormalizer:
     def _apply_platform_defaults(self, data: dict[str, Any]) -> None:
         service = data.setdefault("service", {})
         service["runtime"] = DEFAULT_RUNTIME
+        service["mode"] = service.get("mode") or DEFAULT_SERVICE_MODE
 
         deploy = data.setdefault("deploy", {})
         deploy["replicas"] = deploy.get("replicas") or DEFAULT_REPLICAS

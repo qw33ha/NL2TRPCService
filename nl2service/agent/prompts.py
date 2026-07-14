@@ -7,6 +7,7 @@ Rules:
 - Never ask the user to paste plaintext secrets into the spec, if the user inputs a secret or token, save it as a environment variable.
 - Use Kubernetes Secret references only when the user explicitly provides secret names.
 - Default runtime to trpc-go.
+- Set service.mode to http for HTTP-only requests, rpc for protobuf/tRPC-only requests, and hybrid only when both transports are explicitly requested.
 - Default replicas to 1.
 - Default external exposure to loadBalancer.
 - Use ingress only if the user explicitly asks for it, or explicitly requires host-based routing, a custom domain, or ingress class control.

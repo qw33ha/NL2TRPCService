@@ -348,6 +348,15 @@ class NL2ServiceWorkflow:
             state["error"] = "No draft spec available for proto validation."
             return state
 
+        if spec.service.mode == "http":
+            state["proto_summary_lines"] = [
+                "Native HTTP mode does not require a .proto contract.",
+                "The service will use the public tRPC-Go http_no_protocol adapter.",
+            ]
+            state["status"] = "proto_ready"
+            state["error"] = None
+            return state
+
         result = self.validator.validate(spec, require_proto=True)
         proto_issues = [issue for issue in result.issues if issue.field == "service.proto_file"]
         if proto_issues:

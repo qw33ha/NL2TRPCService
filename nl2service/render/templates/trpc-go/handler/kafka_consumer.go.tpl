@@ -8,10 +8,16 @@ import (
 	"github.com/IBM/sarama"
 )
 
+type KafkaConsumer struct{}
+
+func NewKafkaConsumer() *KafkaConsumer {
+	return &KafkaConsumer{}
+}
+
 func HandleKafkaMessage(ctx context.Context, msg *sarama.ConsumerMessage) error {
 	_ = ctx
 
-	var payload map[string]any
+	var payload map[string]interface{}
 	if err := json.Unmarshal(msg.Value, &payload); err != nil {
 		return nil
 	}
