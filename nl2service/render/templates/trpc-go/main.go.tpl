@@ -8,6 +8,7 @@ import (
 
 	trpc "trpc.group/trpc-go/trpc-go"
 	trpclog "trpc.group/trpc-go/trpc-go/log"
+	trpcserver "trpc.group/trpc-go/trpc-go/server"
 {% endif %}
 {% if http_enabled %}
 	thttp "trpc.group/trpc-go/trpc-go/http"
@@ -24,11 +25,13 @@ import (
 const serviceName = "{{ primary_service_name }}"
 
 func main() {
+{% if kafka_enabled %}
+	if err := handler.RegisterKafkaConfigFromEnv(); err != nil {
+		trpclog.Fatalf("configure Kafka: %v", err)
+	}
+{% endif %}
 {% if db_enabled %}
 	initDatabaseClients()
-{% endif %}
-{% if kafka_producer_enabled %}
-	initKafkaProducer()
 {% endif %}
 {% if rpc_enabled %}
 	serviceHandler := handler.New{{ handler_type_name }}()
@@ -71,22 +74,15 @@ func initDatabaseClients() {
 {% endif %}
 }
 {% endif %}
-{% if kafka_producer_enabled %}
-
-func initKafkaProducer() {
-	_ = handler.NewKafkaProducerProxy()
-	// [LLM: inject the Kafka producer proxy into the business handlers that publish events.]
-}
-{% endif %}
 {% if kafka_consumer_enabled %}
 
-func registerKafkaConsumers(s *trpc.Server) {
-	trpckafka.RegisterKafkaHandlerService(s.Service("{{ kafka_service_name }}"), handler.HandleKafkaMessage)
+func registerKafkaConsumers(s *trpcserver.Server) {
+	trpckafka.RegisterKafkaConsumerService(s, handler.NewKafkaConsumer())
 }
 {% endif %}
 {% if rpc_enabled or http_enabled or kafka_consumer_enabled %}
 
-func serveTRPC(s *trpc.Server) {
+func serveTRPC(s *trpcserver.Server) {
 	trpclog.Infof("starting %s trpc runtime", serviceName)
 	if err := s.Serve(); err != nil {
 		trpclog.Error(err)

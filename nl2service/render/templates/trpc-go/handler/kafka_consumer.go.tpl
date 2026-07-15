@@ -5,7 +5,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/IBM/sarama"
+	"github.com/Shopify/sarama"
+	"trpc.group/trpc-go/trpc-go/log"
 )
 
 type KafkaConsumer struct{}
@@ -14,16 +15,14 @@ func NewKafkaConsumer() *KafkaConsumer {
 	return &KafkaConsumer{}
 }
 
-func HandleKafkaMessage(ctx context.Context, msg *sarama.ConsumerMessage) error {
-	_ = ctx
-
+func (*KafkaConsumer) Handle(_ context.Context, msg *sarama.ConsumerMessage) error {
 	var payload map[string]interface{}
 	if err := json.Unmarshal(msg.Value, &payload); err != nil {
-		return nil
+		return err
 	}
 
 	// [LLM: implement business logic for consumed Kafka messages]
-	_ = payload
+	log.Infof("consumed Kafka message topic=%s partition=%d offset=%d payload=%v", msg.Topic, msg.Partition, msg.Offset, payload)
 	return nil
 }
 {% endif %}

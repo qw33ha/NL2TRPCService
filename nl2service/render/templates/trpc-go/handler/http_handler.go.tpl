@@ -3,6 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+
+	"trpc.group/trpc-go/trpc-go/log"
 {% if http_enabled %}
 	thttp "trpc.group/trpc-go/trpc-go/http"
 {% endif %}

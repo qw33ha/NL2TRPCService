@@ -23,6 +23,10 @@ WORKDIR /app
 
 COPY --from=builder /out/{{ server_bin }} /app/{{ server_bin }}
 COPY trpc_go.yaml /app/trpc_go.yaml
+{% if kafka_enabled %}
+COPY ca.pem /etc/ssl/certs/kafka-ca.pem
+ENV SSL_CERT_FILE=/etc/ssl/certs/kafka-ca.pem
+{% endif %}
 
 ENTRYPOINT ["/app/{{ server_bin }}"]
 CMD ["-conf=/app/trpc_go.yaml"]

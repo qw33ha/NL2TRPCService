@@ -79,6 +79,10 @@ class ServiceRenderer:
             files["handler/kafka_consumer.go"] = self._render("trpc-go/handler/kafka_consumer.go.tpl", context)
         if context["kafka_producer_enabled"]:
             files["handler/kafka_producer.go"] = self._render("trpc-go/handler/kafka_producer.go.tpl", context)
+        if context["kafka_enabled"]:
+            files["handler/kafka_config.go"] = self._render("trpc-go/handler/kafka_config.go.tpl", context)
+            files[".env.example"] = self._render("trpc-go/env.example.tpl", context)
+            files[".gitignore"] = self._render("trpc-go/gitignore.tpl", context)
         if spec.exposure.type == "ingress":
             files["k8s/ingress.yaml"] = self._render("k8s/ingress.yaml.j2", {"spec": spec})
         if spec.exposure.type == "loadBalancer":
@@ -186,9 +190,13 @@ class ServiceRenderer:
             "db_name": spec.database.database or normalized_name,
             "db_user": normalized_name,
             "db_password_env": self._env_name(spec.database.secret_name or f"{service_name}_db_password"),
+            "kafka_enabled": kafka_enabled,
             "kafka_consumer_enabled": kafka_enabled,
-            "kafka_producer_enabled": False,
-            "kafka_service_name": f"{service_prefix}.kafka",
+            "kafka_producer_enabled": kafka_enabled,
+            "kafka_consumer_service_name": "trpc.kafka.consumer.service",
+            "kafka_producer_service_name": "trpc.kafka.producer.service",
+            "kafka_consumer_address": "kafka-consumer-config",
+            "kafka_producer_address": "kafka-producer-config",
             "kafka_consumer_topic": spec.kafka.topic or f"{service_name}.topic",
             "kafka_consumer_group": spec.kafka.group or f"{service_name}-group",
             "kafka_producer_topic": spec.kafka.topic or f"{service_name}.topic",
@@ -229,6 +237,18 @@ class ServiceRenderer:
             lines.append("- `handler/http_handler.go`: HTTP bridge handlers backed by the generated tRPC service interface")
         if spec.exposure.host:
             lines.append(f"- host: `{spec.exposure.host}`")
+        if context["kafka_enabled"]:
+            lines.extend(
+                [
+                    "",
+                    "## Kafka",
+                    f"- topic: `{context['kafka_consumer_topic']}`",
+                    f"- consumer group: `{context['kafka_consumer_group']}`",
+                    "- copy `.env.example` to `.env` and inject the Kafka username and password at runtime",
+                    "- save the provider CA certificate as `ca.pem` beside the Dockerfile before building",
+                    "- Kafka configuration is registered under opaque addresses so credentials are not printed in startup logs",
+                ]
+            )
         lines.extend(
             [
                 "",

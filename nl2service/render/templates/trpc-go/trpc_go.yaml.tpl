@@ -39,10 +39,10 @@ server:
       idle_timeout: 10000
 {% endif %}
 {% if kafka_consumer_enabled %}
-    - name: {{ kafka_service_name }}
-      address: {{ kafka_producer_brokers }}
+    - name: {{ kafka_consumer_service_name }}
+      address: {{ kafka_consumer_address }}
       protocol: kafka
-      timeout: 1000
+      timeout: 5000
 {% endif %}
 
 client:
@@ -58,7 +58,7 @@ client:
       timeout: 1000
 {% endif %}
 {% if kafka_consumer_enabled or kafka_producer_enabled %}
-    - name: {{ kafka_service_name }}
-      target: kafka://{{ kafka_producer_brokers }}
-      timeout: 1000
+    - name: {{ kafka_producer_service_name }}
+      target: kafka://{{ kafka_producer_address }}
+      timeout: 5000
 {% endif %}

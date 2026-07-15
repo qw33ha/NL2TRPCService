@@ -4,30 +4,27 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
-	"trpc.group/trpc-go/trpc-database/kafka"
+	trpckafka "trpc.group/trpc-go/trpc-database/kafka"
 )
 
 type KafkaProducer struct {
-	cli kafka.Client
+	client trpckafka.Client
 }
 
 func NewKafkaProducer() *KafkaProducer {
-	return &KafkaProducer{
-		cli: kafka.NewClientProxy("trpc.kafka.{{ group }}.{{ app }}.{{ server }}"),
-	}
+	return &KafkaProducer{client: trpckafka.NewClientProxy("{{ kafka_producer_service_name }}")}
 }
 
 func (p *KafkaProducer) Send(ctx context.Context, key string, value interface{}) error {
 	data, err := json.Marshal(value)
 	if err != nil {
-		return err
+		return fmt.Errorf("encode Kafka message: %w", err)
 	}
-	if err := p.cli.Produce(ctx, []byte(key), data); err != nil {
-		log.Errorf("kafka produce failed topic={{ kafka_producer_topic }} key=%s err=%v", key, err)
-		return err
+	if err := p.client.Produce(ctx, []byte(key), data); err != nil {
+		return fmt.Errorf("publish Kafka message: %w", err)
 	}
-	log.Infof("kafka produce success topic={{ kafka_producer_topic }} key=%s", key)
 	return nil
 }
 {% endif %}

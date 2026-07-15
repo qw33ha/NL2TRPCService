@@ -1,0 +1,30 @@
+global:
+  namespace: Development
+  env_name: local
+  local_ip: 127.0.0.1
+
+server:
+  service:
+    - name: demo.minimaltrpckafkaevent.HTTP
+      ip: 0.0.0.0
+      port: 8080
+      network: tcp
+      protocol: http_no_protocol
+      timeout: 3000
+    - name: trpc.kafka.consumer.service
+      address: kafka-consumer-config
+      protocol: kafka
+      timeout: 5000
+
+client:
+  timeout: 5000
+  service:
+    - name: trpc.kafka.producer.service
+      target: kafka://kafka-producer-config
+      timeout: 5000
+
+plugins:
+  log:
+    default:
+      - writer: console
+        level: info
