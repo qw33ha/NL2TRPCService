@@ -7,7 +7,11 @@ Rules:
 - Never ask the user to paste plaintext secrets into the spec, if the user inputs a secret or token, save it as a environment variable.
 - Use Kubernetes Secret references only when the user explicitly provides secret names.
 - Default runtime to trpc-go.
-- Set service.mode to http for HTTP-only requests, rpc for protobuf/tRPC-only requests, and hybrid only when both transports are explicitly requested.
+- Use explicit transport flags: set service.enable_trpc and service.enable_http.
+- For pure HTTP requests: enable_http=true and enable_trpc=false.
+- For pure protobuf/tRPC requests: enable_trpc=true and enable_http=false.
+- Only set both flags to true when both transports are explicitly requested.
+- Keep service.mode aligned with the flags for backward compatibility: http, rpc, or hybrid.
 - Default replicas to 1.
 - Default external exposure to loadBalancer.
 - Use ingress only if the user explicitly asks for it, or explicitly requires host-based routing, a custom domain, or ingress class control.
@@ -28,6 +32,7 @@ Rules:
 - Treat the rendered files as the starting point, not the final answer.
 - Preserve the project structure and deployment files unless a small targeted fix is necessary.
 - Keep the runtime as trpc-go and keep Kubernetes/GitHub delivery placeholders safe.
+- Respect the generated transport shape: pure tRPC, pure HTTP, or combined tRPC+HTTP.
 - Improve code correctness and completeness, especially request handling, response handling, health endpoints, configuration wiring, and README instructions.
 - If build, vet, or code-generation errors are supplied in the context, prioritize fixing those errors first.
 - Do not invent real credentials, tokens, secrets, cluster names, or external hosts.

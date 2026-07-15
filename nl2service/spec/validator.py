@@ -54,7 +54,14 @@ class ServiceSpecValidator:
             result.issues.append(ValidationIssue("service.module", "Go module path is required."))
         if spec.service.runtime != "trpc-go":
             result.issues.append(ValidationIssue("service.runtime", "MVP currently supports only trpc-go runtime."))
-        if require_proto and spec.service.mode in {"rpc", "hybrid"}:
+        if not spec.service.enable_trpc and not spec.service.enable_http:
+            result.issues.append(
+                ValidationIssue(
+                    "service.enable_trpc",
+                    "At least one transport must be enabled: service.enable_trpc or service.enable_http.",
+                )
+            )
+        if require_proto and spec.service.enable_trpc:
             if not spec.service.proto_file:
                 result.issues.append(
                     ValidationIssue(
@@ -141,6 +148,7 @@ class ServiceSpecValidator:
             "service.name": "What service name should we use?",
             "service.module": "What Go module path should we generate for this service?",
             "service.proto_file": "Please provide the path to the .proto file that defines the tRPC contract.",
+            "service.enable_trpc": "Should this service expose tRPC, HTTP, or both? Set service.enable_trpc and service.enable_http accordingly.",
             "repo.owner": "Which GitHub owner or organization should host the repository?",
             "repo.name": "What repository name should we create?",
             "deploy.namespace": "Which Kubernetes namespace should we deploy into?",

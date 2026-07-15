@@ -348,7 +348,7 @@ class NL2ServiceWorkflow:
             state["error"] = "No draft spec available for proto validation."
             return state
 
-        if spec.service.mode == "http":
+        if not spec.service.enable_trpc:
             state["proto_summary_lines"] = [
                 "Native HTTP mode does not require a .proto contract.",
                 "The service will use the public tRPC-Go http_no_protocol adapter.",
@@ -636,3 +636,4 @@ class NL2ServiceWorkflow:
             state["status"] = "error"
             state["error"] = str(exc)
             return state
+

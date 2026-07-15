@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package demo.minimaltrpchttpecho;
+
+option go_package = "github.com/qw33ha/minimal-trpc-http-echo/pb";
+
+service EchoService {
+  rpc Echo (EchoRequest) returns (EchoResponse);
+}
+
+message EchoRequest {
+  string payload_json = 1;
+  string http_method = 2;
+  string http_path = 3;
+}
+
+message EchoResponse {
+  string payload_json = 1;
+  string message = 2;
+}

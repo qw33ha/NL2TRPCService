@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from nl2service.spec.defaults import (
     DEFAULT_EXPOSURE_TYPE,
@@ -18,8 +18,42 @@ class ServiceConfig(BaseModel):
     name: str | None = None
     runtime: str = DEFAULT_RUNTIME
     mode: Literal["http", "rpc", "hybrid"] = DEFAULT_SERVICE_MODE
+    enable_trpc: bool | None = None
+    enable_http: bool | None = None
     module: str | None = None
     proto_file: str | None = None
+
+    @model_validator(mode="after")
+    def normalize_transports(self) -> "ServiceConfig":
+        trpc_enabled = self.enable_trpc
+        http_enabled = self.enable_http
+
+        if trpc_enabled is None and http_enabled is None:
+            if self.mode == "http":
+                trpc_enabled = False
+                http_enabled = True
+            elif self.mode == "hybrid":
+                trpc_enabled = True
+                http_enabled = True
+            else:
+                trpc_enabled = True
+                http_enabled = False
+        else:
+            trpc_enabled = bool(trpc_enabled) if trpc_enabled is not None else False
+            http_enabled = bool(http_enabled) if http_enabled is not None else False
+
+        if not trpc_enabled and not http_enabled:
+            raise ValueError("At least one transport must be enabled: service.enable_trpc or service.enable_http.")
+
+        self.enable_trpc = trpc_enabled
+        self.enable_http = http_enabled
+        if trpc_enabled and http_enabled:
+            self.mode = "hybrid"
+        elif http_enabled:
+            self.mode = "http"
+        else:
+            self.mode = "rpc"
+        return self
 
 
 class EndpointSpec(BaseModel):

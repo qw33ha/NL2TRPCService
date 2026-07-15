@@ -1,0 +1,23 @@
+service:
+  name: minimal-trpc-http-echo
+  module: github.com/qw33ha/minimal-trpc-http-echo
+
+global:
+  namespace: ${TRPC_NAMESPACE:-default}
+  env_name: ${TRPC_ENV:-dev}
+
+server:
+  app: demo
+  server: minimal-trpc-http-echo
+  service:
+    - name: demo.minimaltrpchttpecho.EchoService
+      ip: 0.0.0.0
+      port: 9000
+      network: tcp
+      protocol: trpc
+      timeout: 1000
+      idle_timeout: 10000
+
+http:
+  port: 8080
+  health_path: /health
