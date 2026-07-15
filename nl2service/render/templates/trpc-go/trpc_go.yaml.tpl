@@ -52,9 +52,9 @@ client:
       target: dsn://${MYSQL_USER:-{{ db_user }}}:${{ '{' }}{{ db_password_env }}{{ '}' }}@tcp({{ db_host }}:{{ db_port }})/{{ db_name }}?parseTime=true&interpolateParams=true
       timeout: 1000
 {% endif %}
-{% if db_enabled and db_type == "redis" %}
+{% if db_enabled and db_type == "postgres" %}
     - name: {{ db_service_name }}
-      target: redis://:${{ '{' }}{{ db_password_env }}{{ '}' }}@{{ db_host }}:{{ db_port }}/0
+      target: dsn://postgres://${POSTGRES_USER:-{{ db_user }}}:${{ '{' }}{{ db_password_env }}{{ '}' }}@{{ db_host }}:{{ db_port }}/{{ db_name }}?sslmode=${POSTGRES_SSLMODE:-require}
       timeout: 1000
 {% endif %}
 {% if kafka_consumer_enabled or kafka_producer_enabled %}

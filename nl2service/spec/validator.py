@@ -158,7 +158,7 @@ class ServiceSpecValidator:
             "kafka.topic": "Which Kafka topic should the service use?",
             "kafka.group": "Which Kafka consumer group should the service run under?",
             "kafka.secret_name": "Which Kubernetes Secret contains the Kafka credentials?",
-            "database.type": "Which database type should we target: postgres, mysql, or redis?",
+            "database.type": "Which database type should we target: postgres or mysql?",
             "database.host": "Which database host should we connect to?",
             "database.port": "Which database port should we use?",
             "database.database": "What database name should the service use?",

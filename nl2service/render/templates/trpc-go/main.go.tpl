@@ -61,11 +61,13 @@ func main() {
 
 func initDatabaseClients() {
 {% if db_type == "mysql" %}
-	_ = handler.NewMySQLProxy()
-	// [LLM: inject the MySQL proxy into the business handlers that need persistence.]
-{% elif db_type == "redis" %}
-	_, _ = handler.NewRedisClient()
-	// [LLM: inject the Redis client into the business handlers that need caching or KV access.]
+	_ = handler.NewMySQLHandler()
+	// [LLM: inject the MySQL handler into the transport or business handlers that need persistence.]
+{% elif db_type == "postgres" %}
+	if _, err := handler.NewPostgreSQLHandler(); err != nil {
+		trpclog.Fatalf("initialize PostgreSQL handler: %v", err)
+	}
+	// [LLM: inject the PostgreSQL handler into the transport or business handlers that need persistence.]
 {% endif %}
 }
 {% endif %}

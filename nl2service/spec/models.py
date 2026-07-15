@@ -78,7 +78,7 @@ class KafkaConfig(BaseModel):
 
 class DatabaseConfig(BaseModel):
     enabled: bool = False
-    type: Literal["postgres", "mysql", "redis"] | None = None
+    type: Literal["postgres", "mysql"] | None = None
     host: str | None = None
     port: int | None = None
     database: str | None = None

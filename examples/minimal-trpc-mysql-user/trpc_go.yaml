@@ -1,0 +1,25 @@
+service:
+  name: minimal-trpc-mysql-user
+  module: github.com/qw33ha/minimal-trpc-mysql-user
+
+global:
+  namespace: ${TRPC_NAMESPACE:-default}
+  env_name: ${TRPC_ENV:-dev}
+
+server:
+  app: demo
+  server: minimal-trpc-mysql-user
+  service:
+    - name: demo.minimaltrpcmysqluser.HTTP
+      ip: 0.0.0.0
+      port: 8081
+      network: tcp
+      protocol: http_no_protocol
+      timeout: 3000
+      idle_timeout: 10000
+
+client:
+  service:
+    - name: demo.minimaltrpcmysqluser.mysql
+      target: dsn://${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_PORT})/${MYSQL_DATABASE}?timeout=5s&parseTime=true&interpolateParams=true
+      timeout: 5000

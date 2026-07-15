@@ -39,6 +39,7 @@ class ServiceRenderer:
             trim_blocks=True,
             lstrip_blocks=True,
         )
+        self.env.filters["go_ident"] = self._go_identifier
 
     def inspect_contract(self, spec: ServiceSpec) -> ProtoContract:
         return self._load_proto_contract(spec)
@@ -68,9 +69,12 @@ class ServiceRenderer:
         if http_enabled:
             files["handler/http_handler.go"] = self._render("trpc-go/handler/http_handler.go.tpl", context)
         if context["db_enabled"]:
-            files["handler/db_handler.go"] = self._render("trpc-go/handler/db_handler.go.tpl", context)
-            if context["db_type"] == "redis":
-                files["handler/redis_handler.go"] = self._render("trpc-go/handler/redis_handler.go.tpl", context)
+            db_template = (
+                "trpc-go/handler/postgres_handler.go.tpl"
+                if context["db_type"] == "postgres"
+                else "trpc-go/handler/db_handler.go.tpl"
+            )
+            files["handler/db_handler.go"] = self._render(db_template, context)
         if context["kafka_consumer_enabled"]:
             files["handler/kafka_consumer.go"] = self._render("trpc-go/handler/kafka_consumer.go.tpl", context)
         if context["kafka_producer_enabled"]:
@@ -92,6 +96,14 @@ class ServiceRenderer:
         template = self.env.get_template(template_name)
         return template.render(**context)
 
+    @staticmethod
+    def _go_identifier(value: str) -> str:
+        words = re.findall(r"[A-Za-z0-9]+", value)
+        identifier = "".join(word[:1].upper() + word[1:] for word in words) or "Record"
+        if identifier[0].isdigit():
+            identifier = f"Record{identifier}"
+        return identifier
+
     def _build_context(self, spec: ServiceSpec, contract: ProtoContract | None) -> dict[str, Any]:
         trpc_enabled = bool(spec.service.enable_trpc)
         http_enabled = bool(spec.service.enable_http)
@@ -103,7 +115,7 @@ class ServiceRenderer:
         repo_name = self._slug(spec.repo.name or service_name)
         module_path = (spec.service.module or f"github.com/{owner}/{repo_name}").strip()
 
-        db_type = spec.database.type if spec.database.type in {"mysql", "redis"} else None
+        db_type = spec.database.type if spec.database.type in {"mysql", "postgres"} else None
         db_enabled = bool(spec.database.enabled and db_type)
         kafka_enabled = bool(spec.kafka.enabled)
         rpc_methods: list[dict[str, str]] = []
@@ -164,9 +176,13 @@ class ServiceRenderer:
             "db_enabled": db_enabled,
             "db_type": db_type or "mysql",
             "db_tables": [normalized_name],
-            "db_service_name": f"{service_prefix}.{db_type or 'mysql'}",
+            "db_service_name": (
+                f"trpc.postgres.{owner}.{repo_name}"
+                if db_type == "postgres"
+                else f"{service_prefix}.mysql"
+            ),
             "db_host": spec.database.host or "db.example.internal",
-            "db_port": spec.database.port or (3306 if db_type == "mysql" else 6379),
+            "db_port": spec.database.port or (5432 if db_type == "postgres" else 3306),
             "db_name": spec.database.database or normalized_name,
             "db_user": normalized_name,
             "db_password_env": self._env_name(spec.database.secret_name or f"{service_name}_db_password"),
