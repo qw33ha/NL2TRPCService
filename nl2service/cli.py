@@ -71,6 +71,31 @@ def _print_state(state: dict) -> None:
             typer.echo(f"- {line}")
         return
 
+    if status == "awaiting_github_actions":
+        ci_run = state.get("ci_run", {})
+        typer.echo("\nGitHub Actions is still running:")
+        typer.echo(f"- Status: {ci_run.get('status')}")
+        if ci_run.get("url"):
+            typer.echo(f"- Run: {ci_run['url']}")
+        typer.echo("Resume this session to check the same commit again.")
+        return
+
+    if status == "complete":
+        report = state.get("delivery_report", {})
+        typer.echo("\nDeployment completed successfully:")
+        for label, key in [
+            ("Repository", "repository_url"),
+            ("Commit", "commit_sha"),
+            ("GitHub Actions", "action_run_url"),
+            ("Image", "image"),
+            ("Environment", "environment"),
+            ("Deployment", "deployment"),
+            ("Endpoint", "endpoint"),
+        ]:
+            if report.get(key):
+                typer.echo(f"- {label}: {report[key]}")
+        return
+
     if status in {"rendered", "refined", "verified", "build_verification_failed", "repaired_from_build_feedback"}:
         rendered_files = state.get("rendered_files", {})
         output_dir = state.get("output_dir")

@@ -18,6 +18,34 @@ spec:
           image: ghcr.io/{{ spec.repo.owner }}/{{ spec.repo.name }}:latest
           ports:
             - containerPort: 8080
+{% if spec.kafka.enabled or spec.database.enabled %}
+          env:
+{% if spec.kafka.enabled %}
+            - name: KAFKA_BROKERS
+              value: "{{ spec.kafka.brokers | join(',') }}"
+            - name: KAFKA_TOPIC
+              value: "{{ spec.kafka.topic }}"
+            - name: KAFKA_GROUP
+              value: "{{ spec.kafka.group }}"
+            - name: KAFKA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ spec.kafka.secret_name }}
+                  key: KAFKA_USERNAME
+            - name: KAFKA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ spec.kafka.secret_name }}
+                  key: KAFKA_PASSWORD
+{% endif %}
+{% if spec.database.enabled %}
+            - name: {{ 'POSTGRES' if spec.database.type == 'postgres' else 'MYSQL' }}_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ spec.database.secret_name }}
+                  key: {{ 'POSTGRES' if spec.database.type == 'postgres' else 'MYSQL' }}_PASSWORD
+{% endif %}
+{% endif %}
           readinessProbe:
             httpGet:
               path: {{ spec.exposure.health_path }}

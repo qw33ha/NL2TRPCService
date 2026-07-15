@@ -81,3 +81,9 @@ class WorkflowRunner:
         resumed["target_phase"] = "deliver"
         resumed["error"] = None
         return WorkflowRun(state=self.workflow.run_resume(resumed))
+
+    def poll_github_actions(self, state: WorkflowState) -> WorkflowRun:
+        resumed = dict(state)
+        resumed["interaction"] = {"type": "github_actions_poll"}
+        resumed["error"] = None
+        return WorkflowRun(state=self.workflow.run_resume(resumed))

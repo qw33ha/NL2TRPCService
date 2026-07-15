@@ -5,7 +5,7 @@ from pathlib import Path
 import yaml
 
 from nl2service.spec.models import ServiceSpec
-from nl2service.workflow.state import WorkflowState
+from nl2service.workflow.state import WorkflowState, structured_state_defaults
 
 
 class WorkflowSessionStore:
@@ -25,6 +25,7 @@ class WorkflowSessionStore:
         return data
 
     def _deserialize(self, data: dict) -> WorkflowState:
+        structured = structured_state_defaults()
         loaded: WorkflowState = {
             "user_request": data.get("user_request", ""),
             "model": data.get("model"),
@@ -47,6 +48,16 @@ class WorkflowSessionStore:
             "output_dir": data.get("output_dir"),
             "github_delivery": data.get("github_delivery", {}),
             "github_summary_lines": data.get("github_summary_lines", []),
+            "selected_examples": data.get("selected_examples", structured["selected_examples"]),
+            "example_reference_files": data.get(
+                "example_reference_files", structured["example_reference_files"]
+            ),
+            "local_build": data.get("local_build", structured["local_build"]),
+            "active_failure": data.get("active_failure"),
+            "repair_history": data.get("repair_history", structured["repair_history"]),
+            "ci_run": data.get("ci_run", structured["ci_run"]),
+            "deployment": data.get("deployment", structured["deployment"]),
+            "delivery_report": data.get("delivery_report", structured["delivery_report"]),
             "status": data.get("status", "starting"),
             "error": data.get("error"),
         }

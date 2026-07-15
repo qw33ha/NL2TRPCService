@@ -13,6 +13,8 @@ class BuildVerificationResult:
     success: bool
     summary_lines: list[str] = field(default_factory=list)
     feedback: str = ""
+    command: str | None = None
+    exit_code: int | None = None
 
 
 class GoBuildVerifier:
@@ -77,7 +79,13 @@ class GoBuildVerifier:
             "Build verification succeeded.",
             "Commands passed: trpc create (if needed), go mod tidy, go vet ./..., go build ./...",
         ]
-        return BuildVerificationResult(success=True, summary_lines=summary_lines, feedback="Build verification succeeded.")
+        return BuildVerificationResult(
+            success=True,
+            summary_lines=summary_lines,
+            feedback="Build verification succeeded.",
+            command="go build ./...",
+            exit_code=0,
+        )
 
     def _find_proto_file(self, files: dict[str, str]) -> str | None:
         for path in files:
@@ -124,4 +132,10 @@ class GoBuildVerifier:
                 blocks.append(result.stderr.strip())
             blocks.append(f"EXIT CODE: {result.returncode}")
         feedback = "\n".join(blocks)
-        return BuildVerificationResult(success=False, summary_lines=summary_lines, feedback=feedback)
+        return BuildVerificationResult(
+            success=False,
+            summary_lines=summary_lines,
+            feedback=feedback,
+            command=command_text,
+            exit_code=failed_result.returncode,
+        )

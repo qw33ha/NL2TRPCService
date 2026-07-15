@@ -72,6 +72,17 @@ class CodeRefinerAgent:
             )
             sections.append(f"Clarification history:\n{history}")
 
+        if session.reference_files:
+            reference_blocks = [
+                f"REFERENCE FILE: {path}\n```\n{content}\n```"
+                for path, content in session.reference_files.items()
+            ]
+            sections.append(
+                "Selected verified examples. Adapt their public framework patterns, but do not copy "
+                "credentials, provider endpoints, module names, or unrelated behavior:\n"
+                + "\n\n".join(reference_blocks)
+            )
+
         rendered_blocks: list[str] = []
         for path, content in session.rendered_files.items():
             rendered_blocks.append(f"FILE: {path}\n```\n{content}\n```")

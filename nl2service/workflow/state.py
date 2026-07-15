@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from typing_extensions import NotRequired, TypedDict
 
@@ -30,8 +30,131 @@ class WorkflowState(TypedDict):
     output_dir: str | None
     github_delivery: dict[str, Any]
     github_summary_lines: list[str]
+    selected_examples: list[str]
+    example_reference_files: dict[str, str]
+    local_build: "BuildState"
+    active_failure: "FailureState | None"
+    repair_history: list["RepairRecord"]
+    ci_run: "CIRunState"
+    deployment: "DeploymentState"
+    delivery_report: "DeliveryReportState"
     status: str
     error: str | None
+
+
+class BuildState(TypedDict):
+    status: Literal["pending", "passed", "failed"]
+    command: str | None
+    exit_code: int | None
+    logs: str
+    attempt: int
+
+
+class FailureState(TypedDict):
+    source: Literal["local_build", "github_ci", "deployment"]
+    stage: str
+    command: str | None
+    exit_code: int | None
+    logs: str
+    run_id: str | None
+    commit_sha: str | None
+
+
+class RepairRecord(TypedDict):
+    source: str
+    stage: str
+    attempt: int
+    changed_files: list[str]
+    feedback: str
+
+
+class CIRunState(TypedDict):
+    run_id: str | None
+    url: str | None
+    commit_sha: str | None
+    status: str
+    conclusion: str | None
+    failed_job: str | None
+    logs: str | None
+    poll_attempts: int
+
+
+class DeploymentState(TypedDict):
+    status: str
+    environment: str | None
+    namespace: str | None
+    deployment: str | None
+    image: str | None
+    image_digest: str | None
+    endpoint: str | None
+
+
+class DeliveryReportState(TypedDict):
+    repository_url: str | None
+    branch: str | None
+    commit_sha: str | None
+    action_run_url: str | None
+    image: str | None
+    image_digest: str | None
+    environment: str | None
+    deployment: str | None
+    endpoint: str | None
+    secret_names: list[str]
+    database_tables: list[str]
+    kafka_topics: list[str]
+    usage_examples: list[str]
+    warnings: list[str]
+
+
+def structured_state_defaults() -> dict[str, Any]:
+    return {
+        "selected_examples": [],
+        "example_reference_files": {},
+        "local_build": {
+            "status": "pending",
+            "command": None,
+            "exit_code": None,
+            "logs": "",
+            "attempt": 0,
+        },
+        "active_failure": None,
+        "repair_history": [],
+        "ci_run": {
+            "run_id": None,
+            "url": None,
+            "commit_sha": None,
+            "status": "pending",
+            "conclusion": None,
+            "failed_job": None,
+            "logs": None,
+            "poll_attempts": 0,
+        },
+        "deployment": {
+            "status": "pending",
+            "environment": None,
+            "namespace": None,
+            "deployment": None,
+            "image": None,
+            "image_digest": None,
+            "endpoint": None,
+        },
+        "delivery_report": {
+            "repository_url": None,
+            "branch": None,
+            "commit_sha": None,
+            "action_run_url": None,
+            "image": None,
+            "image_digest": None,
+            "environment": None,
+            "deployment": None,
+            "endpoint": None,
+            "secret_names": [],
+            "database_tables": [],
+            "kafka_topics": [],
+            "usage_examples": [],
+            "warnings": [],
+        },
+    }
 
 
 

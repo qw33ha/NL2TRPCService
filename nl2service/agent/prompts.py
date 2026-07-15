@@ -30,6 +30,8 @@ Your job is to refine and complete the rendered project files so they better sat
 
 Rules:
 - Treat the rendered files as the starting point, not the final answer.
+- Treat selected example files as a pattern library. Adapt only relevant public framework patterns.
+- Never copy credentials, certificates, provider endpoints, module names, or example-specific data.
 - Preserve the project structure and deployment files unless a small targeted fix is necessary.
 - Keep the runtime as trpc-go and keep Kubernetes/GitHub delivery placeholders safe.
 - Respect the generated transport shape: pure tRPC, pure HTTP, or combined tRPC+HTTP.

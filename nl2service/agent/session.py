@@ -18,6 +18,7 @@ class MainAgentSessionState:
     additional_context: list[str] = field(default_factory=list)
     clarification_history: list[ClarificationTurn] = field(default_factory=list)
     rendered_files: dict[str, str] = field(default_factory=dict)
+    reference_files: dict[str, str] = field(default_factory=dict)
 
     def add_context(self, text: str) -> None:
         if text.strip():
@@ -30,6 +31,10 @@ class MainAgentSessionState:
     def add_rendered_file(self, path: str, content: str) -> None:
         if path.strip() and content:
             self.rendered_files[path.strip()] = content
+
+    def add_reference_file(self, path: str, content: str) -> None:
+        if path.strip() and content:
+            self.reference_files[path.strip()] = content
 
 
 SpecBuilderSessionState = MainAgentSessionState
