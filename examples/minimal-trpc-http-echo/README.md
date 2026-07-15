@@ -5,6 +5,10 @@ This example shows the smallest open-source-friendly split:
 - `builder` stage uses the public `golang` image to compile a Go binary with the `trpc-go` dependency.
 - `runtime` stage uses a small public base image and does not preinstall any separate `trpc` system command.
 
+The example constructs one shared `EchoHandler` and registers it behind both
+transports on a single `trpc.Server`. `main.go` contains only dependency and
+transport wiring; request handling lives under `handler/`.
+
 The resulting container exposes:
 
 - `POST /echo` on port `8080`

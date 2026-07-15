@@ -55,7 +55,6 @@ class ServiceRenderer:
             "Dockerfile": self._render("trpc-go/Dockerfile.tpl", context),
             "build.sh": self._render("trpc-go/build.sh.tpl", context),
             "devops_build.sh": self._render("trpc-go/devops_build.sh.tpl", context),
-            "start.sh": self._render("trpc-go/start.sh.tpl", context),
             ".github/workflows/build-and-deploy.yaml": self._render("github-actions/build-and-deploy.yaml.j2", {"spec": spec}),
             "k8s/deployment.yaml": self._render("k8s/deployment.yaml.j2", {"spec": spec}),
             "k8s/service.yaml": self._render("k8s/service.yaml.j2", {"spec": spec}),
@@ -134,6 +133,8 @@ class ServiceRenderer:
         handler_type_name = f"{contract.service_name}Handler" if contract else "HTTPHandler"
         service_prefix = f"trpc.{contract.package}" if contract else f"trpc.{owner}.{repo_name}"
         trpc_service_name = f"{service_prefix}.{contract.service_name}" if contract else f"{service_prefix}.service"
+        http_service_name = f"{service_prefix}.http"
+        primary_service_name = trpc_service_name if trpc_enabled else http_service_name
 
         return {
             "module_path": module_path,
@@ -152,7 +153,8 @@ class ServiceRenderer:
             "rpc_methods": rpc_methods,
             "handler_type_name": handler_type_name,
             "trpc_service_name": trpc_service_name,
-            "http_service_name": f"{service_prefix}.http",
+            "http_service_name": http_service_name,
+            "primary_service_name": primary_service_name,
             "native_http_enabled": native_http_enabled,
             "http_enabled": bool(http_apis),
             "http_apis": http_apis,

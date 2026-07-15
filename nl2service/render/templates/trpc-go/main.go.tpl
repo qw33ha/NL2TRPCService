@@ -21,7 +21,7 @@ import (
 	"{{ module_path }}/handler"
 )
 
-const serviceName = "{{ trpc_service_name }}"
+const serviceName = "{{ primary_service_name }}"
 
 func main() {
 {% if db_enabled %}

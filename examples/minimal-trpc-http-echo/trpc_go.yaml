@@ -17,7 +17,10 @@ server:
       protocol: trpc
       timeout: 1000
       idle_timeout: 10000
-
-http:
-  port: 8080
-  health_path: /health
+    - name: demo.minimaltrpchttpecho.HTTP
+      ip: 0.0.0.0
+      port: 8080
+      network: tcp
+      protocol: http_no_protocol
+      timeout: 1000
+      idle_timeout: 10000
