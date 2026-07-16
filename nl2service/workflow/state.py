@@ -20,6 +20,9 @@ class WorkflowState(TypedDict):
     draft_spec: NotRequired[ServiceSpec]
     validation_issues: list[dict[str, str]]
     clarification_items: list[dict[str, str]]
+    ambiguity_items: list[dict[str, Any]]
+    resolved_ambiguities: list[str]
+    accepted_assumptions: list[str]
     gate_summary_lines: list[str]
     proto_summary_lines: list[str]
     verification_summary_lines: list[str]
@@ -58,6 +61,7 @@ class FailureState(TypedDict):
     logs: str
     run_id: str | None
     commit_sha: str | None
+    signature: NotRequired[str]
 
 
 class RepairRecord(TypedDict):
@@ -66,6 +70,7 @@ class RepairRecord(TypedDict):
     attempt: int
     changed_files: list[str]
     feedback: str
+    signature: NotRequired[str | None]
 
 
 class CIRunState(TypedDict):
@@ -108,6 +113,9 @@ class DeliveryReportState(TypedDict):
 
 def structured_state_defaults() -> dict[str, Any]:
     return {
+        "ambiguity_items": [],
+        "resolved_ambiguities": [],
+        "accepted_assumptions": [],
         "selected_examples": [],
         "example_reference_files": {},
         "local_build": {

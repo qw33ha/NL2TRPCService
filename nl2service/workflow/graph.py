@@ -5,9 +5,11 @@ from pathlib import Path
 from langgraph.graph import END, START, StateGraph
 
 from nl2service.agent.code_refiner import CodeRefinerAgent, CodeRefinerError
+from nl2service.agent.ambiguity import AmbiguityAnalyzer
 from nl2service.agent.provider import LLMProvider
 from nl2service.agent.session import ClarificationTurn, MainAgentSessionState
 from nl2service.agent.spec_builder import SpecBuilderAgent
+from nl2service.build.go_repair import DeterministicGoRepair
 from nl2service.build.verify import GoBuildVerifier
 from nl2service.render.renderer import ProtoContractError, ServiceRenderer
 from nl2service.spec.models import ServiceSpec
@@ -44,7 +46,9 @@ class NL2ServiceWorkflow:
         self.gate_builder = GateSummaryBuilder()
         self.renderer = ServiceRenderer()
         self.example_selector = ExampleSelector()
+        self.ambiguity_analyzer = AmbiguityAnalyzer(self.provider, model)
         self.verifier = GoBuildVerifier()
+        self.deterministic_go_repair = DeterministicGoRepair()
         self.graph = self._build_graph().compile()
 
     def run_create(self, user_request: str, additional_context: list[str] | None = None) -> WorkflowState:
@@ -230,6 +234,7 @@ class NL2ServiceWorkflow:
             self._route_after_verify_build,
             {
                 "repair_build_errors": "repair_build_errors",
+                "verify_build": "verify_build",
                 "prepare_github_delivery": "prepare_github_delivery",
                 "deliver_to_github": "deliver_to_github",
                 "end": END,
@@ -345,7 +350,8 @@ class NL2ServiceWorkflow:
             state["error"] = "No draft spec available for gate preparation."
             return state
         summary = self.gate_builder.build(spec)
-        state["gate_summary_lines"] = summary.to_lines()
+        assumption_lines = [f"Assumption: {item}" for item in state.get("accepted_assumptions", [])]
+        state["gate_summary_lines"] = summary.to_lines() + assumption_lines
         state["status"] = "gate_prepared"
         return state
 
@@ -531,6 +537,12 @@ class NL2ServiceWorkflow:
             return state
 
         result = self.verifier.verify(rendered_files)
+        if result.synchronized_files:
+            rendered_files = result.synchronized_files
+            state["rendered_files"] = rendered_files
+            output_dir = state.get("output_dir")
+            if output_dir:
+                self.renderer.write_tree(rendered_files, Path(output_dir))
         state["verification_summary_lines"] = result.summary_lines
         state["build_feedback"] = None if result.success else result.feedback
         current_attempt = int(state.get("verification_attempts", 0))
@@ -551,6 +563,20 @@ class NL2ServiceWorkflow:
         if "not found in PATH" in result.feedback:
             state["status"] = "error"
             state["error"] = result.feedback
+            return state
+
+        deterministic = self.deterministic_go_repair.apply(rendered_files, result.feedback)
+        if deterministic.changed:
+            state["rendered_files"] = deterministic.files
+            state["refinement_notes"] = [
+                *list(state.get("refinement_notes", [])),
+                *deterministic.notes,
+            ]
+            output_dir = state.get("output_dir")
+            if output_dir:
+                self.renderer.write_tree(deterministic.files, Path(output_dir))
+            state["status"] = "deterministic_repair_applied"
+            state["error"] = None
             return state
 
         attempts = int(state.get("verification_attempts", 0)) + 1
@@ -585,6 +611,8 @@ class NL2ServiceWorkflow:
             return "end"
         if state.get("status") == "build_verification_failed":
             return "repair_build_errors"
+        if state.get("status") == "deterministic_repair_applied":
+            return "verify_build"
         return "end"
 
     def _repair_build_errors_node(self, state: WorkflowState) -> WorkflowState:
@@ -600,6 +628,23 @@ class NL2ServiceWorkflow:
         if feedback:
             repair_context.append(feedback)
 
+        deterministic = self.deterministic_go_repair.apply(
+            dict(state.get("rendered_files", {})),
+            feedback or "",
+        )
+        if deterministic.changed:
+            state["rendered_files"] = deterministic.files
+            state["refinement_notes"] = [
+                *list(state.get("refinement_notes", [])),
+                *deterministic.notes,
+            ]
+            output_dir = state.get("output_dir")
+            if output_dir:
+                self.renderer.write_tree(deterministic.files, Path(output_dir))
+            state["status"] = "repaired_from_build_feedback"
+            state["error"] = None
+            return state
+
         session = MainAgentSessionState(
             user_request=state.get("user_request", ""),
             draft_spec=spec,
@@ -607,6 +652,7 @@ class NL2ServiceWorkflow:
             clarification_history=[ClarificationTurn(**turn) for turn in state.get("clarification_history", [])],
             rendered_files=dict(state.get("rendered_files", {})),
             reference_files=dict(state.get("example_reference_files", {})),
+            repair_feedback=feedback,
         )
         previous_files = dict(state.get("rendered_files", {}))
         try:
@@ -624,6 +670,13 @@ class NL2ServiceWorkflow:
             for path in set(previous_files) | set(result.files)
             if previous_files.get(path) != result.files.get(path)
         )
+        if not changed_files:
+            state["status"] = "error"
+            state["error"] = (
+                f"Automatic repair produced no file changes for {source}/{stage}.\n\n"
+                f"CI feedback supplied to the LLM:\n{feedback or 'No diagnostic output was available.'}"
+            )
+            return state
         history = list(state.get("repair_history", []))
         history.append(
             {
@@ -632,6 +685,7 @@ class NL2ServiceWorkflow:
                 "attempt": len([item for item in history if item.get("source") == source]) + 1,
                 "changed_files": changed_files,
                 "feedback": feedback or "",
+                "signature": failure.get("signature") if failure else None,
             }
         )
         state["repair_history"] = history

@@ -47,11 +47,17 @@ class SpecBuilderAgent:
         model_name = self.model or os.getenv("NL2SERVICE_OPENAI_MODEL") or DEFAULT_SPEC_BUILDER_MODEL
         provider = self.provider or LLMProvider()
         try:
-            llm = provider.get_model(model_name).with_structured_output(ServiceSpec)
+            llm = provider.get_model(model_name).with_structured_output(
+                ServiceSpec,
+                method="function_calling",
+            )
         except RuntimeError as exc:
             raise SpecBuilderError(str(exc)) from exc
 
-        parsed = llm.invoke(self._build_messages(session))
+        try:
+            parsed = llm.invoke(self._build_messages(session))
+        except Exception as exc:
+            raise SpecBuilderError(f"Specification generation failed: {exc}") from exc
         if parsed is None:
             raise SpecBuilderError("The model did not return a structured ServiceSpec draft.")
 

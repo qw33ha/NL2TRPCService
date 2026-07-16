@@ -15,6 +15,7 @@ class BuildVerificationResult:
     feedback: str = ""
     command: str | None = None
     exit_code: int | None = None
+    synchronized_files: dict[str, str] = field(default_factory=dict)
 
 
 class GoBuildVerifier:
@@ -73,7 +74,14 @@ class GoBuildVerifier:
                 )
                 completed.append((command, result))
                 if result.returncode != 0:
-                    return self._failure_result(command, result, completed)
+                    return self._failure_result(
+                        command,
+                        result,
+                        completed,
+                        self._synchronize_module_files(files, root),
+                    )
+
+            synchronized_files = self._synchronize_module_files(files, root)
 
         summary_lines = [
             "Build verification succeeded.",
@@ -85,7 +93,17 @@ class GoBuildVerifier:
             feedback="Build verification succeeded.",
             command="go build ./...",
             exit_code=0,
+            synchronized_files=synchronized_files,
         )
+
+    @staticmethod
+    def _synchronize_module_files(files: dict[str, str], root: Path) -> dict[str, str]:
+        synchronized = dict(files)
+        for name in ("go.mod", "go.sum"):
+            path = root / name
+            if path.is_file():
+                synchronized[name] = path.read_text(encoding="utf-8")
+        return synchronized
 
     def _find_proto_file(self, files: dict[str, str]) -> str | None:
         for path in files:
@@ -106,6 +124,7 @@ class GoBuildVerifier:
         failed_command: list[str],
         failed_result: subprocess.CompletedProcess[str],
         completed: list[tuple[list[str], subprocess.CompletedProcess[str]]],
+        synchronized_files: dict[str, str],
     ) -> BuildVerificationResult:
         command_text = " ".join(failed_command)
         summary_lines = [
@@ -138,4 +157,5 @@ class GoBuildVerifier:
             feedback=feedback,
             command=command_text,
             exit_code=failed_result.returncode,
+            synchronized_files=synchronized_files,
         )

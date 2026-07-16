@@ -39,6 +39,11 @@ spec:
                   key: KAFKA_PASSWORD
 {% endif %}
 {% if spec.database.enabled %}
+            - name: {{ 'POSTGRES' if spec.database.type == 'postgres' else 'MYSQL' }}_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ spec.database.secret_name }}
+                  key: {{ 'POSTGRES' if spec.database.type == 'postgres' else 'MYSQL' }}_USER
             - name: {{ 'POSTGRES' if spec.database.type == 'postgres' else 'MYSQL' }}_PASSWORD
               valueFrom:
                 secretKeyRef:

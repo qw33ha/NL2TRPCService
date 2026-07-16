@@ -13,6 +13,8 @@ Rules:
 - Only set both flags to true when both transports are explicitly requested.
 - Keep service.mode aligned with the flags for backward compatibility: http, rpc, or hybrid.
 - Default replicas to 1.
+- Treat Kubernetes cluster availability as an explicit choice: deploy.enabled=true only when the user confirms an existing cluster; deploy.enabled=false when they say there is no cluster; otherwise leave it null for clarification.
+- For GKE, set deploy.platform=gke and capture deploy.gcp_project, deploy.cluster, and deploy.location; GitHub authentication uses Workload Identity Federation secrets rather than kubeconfig.
 - Default external exposure to loadBalancer.
 - Use ingress only if the user explicitly asks for it, or explicitly requires host-based routing, a custom domain, or ingress class control.
 - Use clusterIP only if the user explicitly asks for internal-only access.

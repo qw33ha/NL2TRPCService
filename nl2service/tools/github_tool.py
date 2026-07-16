@@ -66,6 +66,12 @@ class GitHubApiProvider:
 
     def create_repo(self, owner: str, repo: str) -> str:
         self._require_token()
+        try:
+            existing = self._request_json("GET", f"/repos/{owner}/{repo}")
+            return str(existing["html_url"])
+        except GitHubAPIError as exc:
+            if "(404)" not in str(exc):
+                raise
         payload = {"name": repo, "private": False, "auto_init": True}
         org_error: GitHubAPIError | None = None
         if owner:

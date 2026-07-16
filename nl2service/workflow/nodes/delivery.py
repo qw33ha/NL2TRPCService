@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 
 from nl2service.tools.github_tool import GitHubAPIError, GitHubProvider
@@ -16,10 +17,20 @@ class GitHubActionsNodes:
         owner = str(delivery.get("owner") or "").strip()
         repo = str(delivery.get("repo") or "").strip()
         commit_sha = str(delivery.get("commit_sha") or "").strip()
-        if not owner or not repo or not commit_sha:
+        if not owner or not repo:
             return self._error(state, "GitHub Actions monitoring requires owner, repo, and commit SHA.")
 
         try:
+            if not commit_sha:
+                runs = self.provider.get_workflow_runs(owner, repo)
+                latest = next((run for run in runs if run.commit_sha), None)
+                if latest is None:
+                    return self._error(
+                        state,
+                        "GitHub Actions monitoring could not recover the delivered commit SHA.",
+                    )
+                commit_sha = str(latest.commit_sha)
+                state["github_delivery"] = {**delivery, "commit_sha": commit_sha}
             run = self.provider.get_workflow_run_for_commit(owner, repo, commit_sha)
             polls = int(state.get("ci_run", {}).get("poll_attempts", 0)) + 1
             if run is None or run.status != "completed":
@@ -51,7 +62,8 @@ class GitHubActionsNodes:
 
     def _record_success(self, state, owner, repo, commit_sha, run, polls):
         spec = state.get("draft_spec")
-        namespace = spec.deploy.namespace if spec else None
+        deploy_enabled = bool(spec and spec.deploy.enabled)
+        namespace = spec.deploy.namespace if deploy_enabled and spec else None
         success_logs = self.provider.get_workflow_logs(owner, repo, run.run_id)
         digest_match = re.search(r"digest:\s*(sha256:[0-9a-f]{64})", success_logs)
         state["ci_run"] = {
@@ -65,13 +77,13 @@ class GitHubActionsNodes:
             "poll_attempts": polls,
         }
         state["deployment"] = {
-            "status": "succeeded",
+            "status": "succeeded" if deploy_enabled else "skipped",
             "environment": namespace,
             "namespace": namespace,
-            "deployment": spec.service.name if spec else None,
-            "image": f"ghcr.io/{owner}/{repo}:{commit_sha}",
+            "deployment": spec.service.name if deploy_enabled and spec else None,
+            "image": f"ghcr.io/{owner}/{repo}:{commit_sha}".lower(),
             "image_digest": digest_match.group(1) if digest_match else None,
-            "endpoint": spec.exposure.host if spec else None,
+            "endpoint": spec.exposure.host if deploy_enabled and spec else None,
         }
         state["active_failure"] = None
         state["status"] = "deployment_succeeded"
@@ -84,6 +96,18 @@ class GitHubActionsNodes:
         failed_stage = failed.name if failed else "github_actions"
         source = "deployment" if failed_stage.lower() == "deploy" else "github_ci"
         logs = self.provider.get_workflow_logs(owner, repo, run.run_id)[-120_000:]
+        diagnostics = self._extract_diagnostics(logs)
+        signature = hashlib.sha256(
+            f"{source}\n{failed_stage}\n{self._signature_source(logs)}".encode("utf-8")
+        ).hexdigest()
+        feedback = (
+            "GitHub Actions failed. Repair the generated project using these diagnostics.\n"
+            f"Failed job: {failed_stage}\n"
+            f"Workflow run: {run.url or run.run_id}\n"
+            f"Commit: {commit_sha}\n"
+            "Diagnostics:\n"
+            f"{diagnostics}"
+        )
         state["ci_run"] = {
             "run_id": run.run_id,
             "url": run.url,
@@ -91,7 +115,7 @@ class GitHubActionsNodes:
             "status": run.status,
             "conclusion": run.conclusion,
             "failed_job": failed_stage,
-            "logs": logs,
+            "logs": feedback,
             "poll_attempts": polls,
         }
         state["active_failure"] = {
@@ -99,11 +123,17 @@ class GitHubActionsNodes:
             "stage": failed_stage,
             "command": None,
             "exit_code": 1,
-            "logs": logs,
+            "logs": feedback,
             "run_id": run.run_id,
             "commit_sha": commit_sha,
+            "signature": signature,
         }
         prior = [item for item in state.get("repair_history", []) if item.get("source") == source]
+        if any(item.get("signature") == signature for item in prior):
+            return self._error(
+                state,
+                f"The same {source}/{failed_stage} failure repeated after an automatic repair.\n\n{feedback}",
+            )
         if len(prior) >= self.max_repair_attempts:
             return self._error(
                 state,
@@ -112,6 +142,37 @@ class GitHubActionsNodes:
         state["status"] = "github_actions_failed"
         state["error"] = None
         return state
+
+    @staticmethod
+    def _extract_diagnostics(logs: str) -> str:
+        lines = logs.splitlines()
+        markers = (
+            "##[error]",
+            "error:",
+            "failed",
+            "exit code",
+            "missing go.sum",
+            "no such file",
+            "permission denied",
+        )
+        relevant = [line for line in lines if any(marker in line.lower() for marker in markers)]
+        tail = lines[-250:]
+        selected = relevant[-150:] + tail
+        deduplicated = list(dict.fromkeys(line for line in selected if line.strip()))
+        return "\n".join(deduplicated)[-40_000:] or "No textual diagnostics were found in the workflow logs."
+
+    @staticmethod
+    def _signature_source(logs: str) -> str:
+        markers = ("##[error]", "error:", "failed", "exit code", "missing go.sum")
+        relevant = [line for line in logs.splitlines() if any(marker in line.lower() for marker in markers)]
+        normalized: list[str] = []
+        for line in relevant:
+            line = re.sub(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z", "", line)
+            line = re.sub(r"\b[0-9a-f]{7,40}\b", "<sha>", line, flags=re.IGNORECASE)
+            line = re.sub(r"\s+", " ", line).strip()
+            if line:
+                normalized.append(line)
+        return "\n".join(dict.fromkeys(normalized)) or "no-diagnostic-signature"
 
     @staticmethod
     def route(state: WorkflowState) -> str:

@@ -19,6 +19,7 @@ class MainAgentSessionState:
     clarification_history: list[ClarificationTurn] = field(default_factory=list)
     rendered_files: dict[str, str] = field(default_factory=dict)
     reference_files: dict[str, str] = field(default_factory=dict)
+    repair_feedback: str | None = None
 
     def add_context(self, text: str) -> None:
         if text.strip():

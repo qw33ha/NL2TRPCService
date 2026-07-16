@@ -74,6 +74,7 @@ class KafkaConfig(BaseModel):
     topic: str | None = None
     group: str | None = None
     secret_name: str | None = None
+    ca_file: str | None = None
 
 
 class DatabaseConfig(BaseModel):
@@ -82,6 +83,7 @@ class DatabaseConfig(BaseModel):
     host: str | None = None
     port: int | None = None
     database: str | None = None
+    table: str | None = None
     secret_name: str | None = None
 
 
@@ -91,6 +93,11 @@ class RepoConfig(BaseModel):
 
 
 class DeployConfig(BaseModel):
+    enabled: bool | None = None
+    platform: Literal["generic", "gke"] | None = None
+    gcp_project: str | None = None
+    cluster: str | None = None
+    location: str | None = None
     namespace: str | None = None
     replicas: int = DEFAULT_REPLICAS
     kubeconfig_secret: str = DEFAULT_KUBECONFIG_SECRET

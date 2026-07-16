@@ -8,10 +8,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.22"
+      - run: go mod tidy
       - run: go test ./...
       - run: go build ./...
 
@@ -21,16 +22,12 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      IMAGE: ghcr.io/${{ '{{' }} github.repository {{ '}}' }}:${{ '{{' }} github.sha {{ '}}' }}
     outputs:
       image: ${{ '{{' }} steps.image.outputs.reference {{ '}}' }}
     steps:
-      - uses: actions/checkout@v4
-{% if spec.kafka.enabled %}
-      - name: Materialize Kafka CA certificate
-        run: printf '%s' "${{ '{{' }} secrets.KAFKA_CA_CERT {{ '}}' }}" > ca.pem
-{% endif %}
+      - uses: actions/checkout@v6
+      - name: Set lowercase container image
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:$GITHUB_SHA" >> "$GITHUB_ENV"
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -41,22 +38,48 @@ jobs:
       - id: image
         run: echo "reference=$IMAGE" >> "$GITHUB_OUTPUT"
 
+{% if spec.deploy.enabled %}
   deploy:
     needs: docker
     runs-on: ubuntu-latest
     permissions:
       contents: read
+{% if spec.deploy.platform == "gke" %}
+      id-token: write
+{% endif %}
     env:
       IMAGE: ${{ '{{' }} needs.docker.outputs.image {{ '}}' }}
       NAMESPACE: {{ spec.deploy.namespace }}
       APP_NAME: {{ spec.service.name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: azure/setup-kubectl@v4
+{% if spec.deploy.platform == "gke" %}
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ '{{' }} secrets.GCP_WIF_PROVIDER {{ '}}' }}
+          service_account: ${{ '{{' }} secrets.GCP_SERVICE_ACCOUNT {{ '}}' }}
+          project_id: {{ spec.deploy.gcp_project }}
+      - uses: google-github-actions/get-gke-credentials@v3
+        with:
+          cluster_name: {{ spec.deploy.cluster }}
+          location: {{ spec.deploy.location }}
+          project_id: {{ spec.deploy.gcp_project }}
+{% else %}
       - name: Write kubeconfig
+        env:
+          KUBECONFIG_CONTENT: ${{ '{{' }} secrets.{{ spec.deploy.kubeconfig_secret }} {{ '}}' }}
         run: |
+          if [ -z "$KUBECONFIG_CONTENT" ]; then
+            echo "::error::Required GitHub Actions Secret {{ spec.deploy.kubeconfig_secret }} is missing or empty."
+            exit 1
+          fi
           mkdir -p "$HOME/.kube"
-          printf '%s' "${{ '{{' }} secrets.{{ spec.deploy.kubeconfig_secret }} {{ '}}' }}" > "$HOME/.kube/config"
+          printf '%s' "$KUBECONFIG_CONTENT" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          kubectl config current-context
+{% endif %}
+      - run: kubectl config set-context --current --namespace="$NAMESPACE"
       - run: kubectl apply -f k8s/
       - run: kubectl set image deployment/$APP_NAME $APP_NAME=$IMAGE -n $NAMESPACE
       - run: kubectl rollout status deployment/$APP_NAME -n $NAMESPACE --timeout=180s
@@ -66,4 +89,5 @@ jobs:
       - run: kubectl get svc {{ spec.service.name }}-lb -n $NAMESPACE -o wide
 {% else %}
       - run: kubectl run smoke --rm -i --restart=Never --image=curlimages/curl -- curl --fail http://{{ spec.service.name }}.{{ spec.deploy.namespace }}.svc.cluster.local{{ spec.exposure.health_path }}
+{% endif %}
 {% endif %}

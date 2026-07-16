@@ -43,11 +43,17 @@ class CodeRefinerAgent:
         model_name = self.model or os.getenv("NL2SERVICE_OPENAI_MODEL") or DEFAULT_CODE_REFINER_MODEL
         provider = self.provider or LLMProvider()
         try:
-            llm = provider.get_model(model_name).with_structured_output(RefinedRender)
+            llm = provider.get_model(model_name).with_structured_output(
+                RefinedRender,
+                method="function_calling",
+            )
         except RuntimeError as exc:
             raise CodeRefinerError(str(exc)) from exc
 
-        parsed = llm.invoke(self._build_messages(session))
+        try:
+            parsed = llm.invoke(self._build_messages(session))
+        except Exception as exc:
+            raise CodeRefinerError(f"Code refinement failed: {exc}") from exc
         files = dict(session.rendered_files)
         files.update(parsed.files)
         if not files:
@@ -66,6 +72,12 @@ class CodeRefinerAgent:
             )
         if session.additional_context:
             sections.append("Additional context:\n" + "\n".join(f"- {item}" for item in session.additional_context))
+        if session.repair_feedback:
+            sections.append(
+                "REQUIRED REPAIR FEEDBACK FROM VERIFICATION/CI:\n"
+                + session.repair_feedback
+                + "\n\nFix the reported failure directly. Do not return unchanged files."
+            )
         if session.clarification_history:
             history = "\n".join(
                 f"Q: {turn.question}\nA: {turn.answer}" for turn in session.clarification_history

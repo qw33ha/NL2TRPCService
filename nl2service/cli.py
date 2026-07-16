@@ -4,6 +4,9 @@ from typing import Optional
 import typer
 
 from nl2service.agent.provider import LLMProvider
+from nl2service.agent.events import AgentTurn
+from nl2service.agent.runtime import AgentSession
+from nl2service.runtime.github_worker import GitHubActionsWorker
 from nl2service.spec.io import dump_spec, load_spec_file
 from nl2service.spec.validator import ServiceSpecValidator
 from nl2service.workflow.runner import WorkflowRunner
@@ -11,6 +14,65 @@ from nl2service.workflow.session_store import WorkflowSessionStore
 
 app = typer.Typer(help="Natural-language to service delivery scaffolding.")
 session_store = WorkflowSessionStore()
+
+
+def _print_agent_turn(turn: AgentTurn) -> None:
+    for event in turn.events:
+        prefix = {
+            "question": "Agent",
+            "approval": "Agent",
+            "progress": "Status",
+            "external_wait": "Status",
+            "completed": "Complete",
+            "error": "Error",
+        }.get(event.kind, "Agent")
+        typer.echo(f"{prefix}: {event.text}")
+        if event.kind == "completed":
+            for key in [
+                "repository_url",
+                "commit_sha",
+                "action_run_url",
+                "image",
+                "image_digest",
+                "environment",
+                "deployment",
+                "endpoint",
+            ]:
+                if event.data.get(key):
+                    typer.echo(f"  {key}: {event.data[key]}")
+
+
+@app.command()
+def chat(
+    request: Optional[str] = typer.Argument(None, help="Initial natural-language service request."),
+    thread: Optional[str] = typer.Option(None, help="Existing conversation thread ID to continue."),
+    model: Optional[str] = typer.Option(None, help="LLM model used by the service agent."),
+    database: Path = typer.Option(
+        Path.home() / ".nl2service" / "agent.db",
+        help="SQLite checkpoint database used for durable conversations.",
+    ),
+) -> None:
+    """Talk to the persistent service-delivery agent in one conversation."""
+    session = AgentSession(model=model, provider=LLMProvider(), database_path=database)
+    thread_id = thread or session.new_thread_id()
+    typer.echo(f"Conversation: {thread_id}")
+    message = request or typer.prompt("You")
+    try:
+        while True:
+            turn = session.handle_message(thread_id, message)
+            _print_agent_turn(turn)
+
+            if turn.waiting_for == "external_wait":
+                worker = GitHubActionsWorker(session)
+                turn = worker.run_until_terminal(thread_id, on_turn=_print_agent_turn)
+
+            if turn.status in {"complete", "cancelled", "error", "verified"} and not turn.waiting_for:
+                break
+            message = typer.prompt("You")
+    except (KeyboardInterrupt, EOFError):
+        typer.echo(f"\nConversation paused. Continue later with: nl2service chat --thread {thread_id}")
+    finally:
+        session.close()
 
 
 
@@ -212,7 +274,7 @@ def _interactive_resume(runner: WorkflowRunner, state: dict) -> dict:
         return current
 
 
-@app.command()
+@app.command(hidden=True)
 def create(
     prompt: str = typer.Argument(..., help="Natural-language service request."),
     model: Optional[str] = typer.Option(None, help="LLM model name used for spec extraction and post-render refinement. Defaults to NL2SERVICE_OPENAI_MODEL or the workflow default."),
@@ -230,7 +292,7 @@ def create(
         typer.echo(f"\nSaved session to {session_out}")
 
 
-@app.command()
+@app.command(hidden=True)
 def clarify(
     spec: Path = typer.Option(..., exists=True, dir_okay=False, help="Path to a draft YAML or JSON ServiceSpec."),
     model: Optional[str] = typer.Option(None, help="Optional workflow model name for consistency with the graph runner."),
@@ -247,7 +309,7 @@ def clarify(
         typer.echo(f"\nSaved session to {session_out}")
 
 
-@app.command()
+@app.command(hidden=True)
 def resume(
     session: Path = typer.Option(..., exists=True, dir_okay=False, help="Path to a saved workflow session."),
     interactive: bool = typer.Option(True, "--interactive/--no-interactive", help="Use interactive mode to let the graph continue after clarification, gate, required-proto, build verification, refinement, and GitHub delivery pauses."),
@@ -261,7 +323,7 @@ def resume(
         typer.echo(f"\nUpdated session saved to {session}")
 
 
-@app.command()
+@app.command(hidden=True)
 def validate(
     spec: Path = typer.Option(..., exists=True, dir_okay=False, help="Path to YAML or JSON ServiceSpec."),
 ) -> None:
@@ -276,7 +338,7 @@ def validate(
     raise typer.Exit(code=1)
 
 
-@app.command()
+@app.command(hidden=True)
 def render(
     spec: Path = typer.Option(..., exists=True, dir_okay=False, help="Path to YAML or JSON ServiceSpec."),
     out: Path = typer.Option(Path("generated"), file_okay=False, help="Output directory."),

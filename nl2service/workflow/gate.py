@@ -19,10 +19,16 @@ class GateSummaryBuilder:
     def build(self, spec: ServiceSpec) -> GateSummary:
         actions = [
             f"Create repository {spec.repo.owner}/{spec.repo.name}",
-            "Commit generated application, workflow, and Kubernetes manifests",
-            f"Deploy to namespace {spec.deploy.namespace} with {spec.deploy.replicas} replica(s)",
-            f"Expose service via {spec.exposure.type}",
+            "Commit generated application and workflow",
         ]
+        if spec.deploy.enabled:
+            actions.extend([
+                "Commit Kubernetes manifests",
+                f"Deploy to namespace {spec.deploy.namespace} with {spec.deploy.replicas} replica(s)",
+                f"Expose service via {spec.exposure.type}",
+            ])
+        else:
+            actions.append("Build and publish the container image; skip Kubernetes deployment")
         warnings = [
             "Agent will not create databases, Kafka clusters, or Kubernetes clusters",
             "Agent will not store plaintext credentials in spec or generated files",
@@ -36,6 +42,7 @@ class GateSummaryBuilder:
         confirmations = [
             "Confirm GitHub repository creation",
             "Confirm workflow execution and container publish",
-            "Confirm Kubernetes deployment and rollout verification",
         ]
+        if spec.deploy.enabled:
+            confirmations.append("Confirm Kubernetes deployment and rollout verification")
         return GateSummary(actions=actions, warnings=warnings, confirmations=confirmations)

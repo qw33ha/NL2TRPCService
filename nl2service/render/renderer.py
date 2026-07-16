@@ -57,10 +57,11 @@ class ServiceRenderer:
             "build.sh": self._render("trpc-go/build.sh.tpl", context),
             "devops_build.sh": self._render("trpc-go/devops_build.sh.tpl", context),
             ".github/workflows/build-and-deploy.yaml": self._render("github-actions/build-and-deploy.yaml.j2", {"spec": spec}),
-            "k8s/deployment.yaml": self._render("k8s/deployment.yaml.j2", {"spec": spec}),
-            "k8s/service.yaml": self._render("k8s/service.yaml.j2", {"spec": spec}),
             "README.md": self._build_readme(spec, context),
         }
+        if spec.deploy.enabled:
+            files["k8s/deployment.yaml"] = self._render("k8s/deployment.yaml.j2", {"spec": spec})
+            files["k8s/service.yaml"] = self._render("k8s/service.yaml.j2", {"spec": spec})
         if trpc_enabled and contract is not None:
             files["handler/handler.go"] = self._render("trpc-go/handler/handler.go.tpl", context)
             files[f"proto/{context['proto_output_name']}"] = contract.contents
@@ -83,9 +84,17 @@ class ServiceRenderer:
             files["handler/kafka_config.go"] = self._render("trpc-go/handler/kafka_config.go.tpl", context)
             files[".env.example"] = self._render("trpc-go/env.example.tpl", context)
             files[".gitignore"] = self._render("trpc-go/gitignore.tpl", context)
-        if spec.exposure.type == "ingress":
+            ca_path = Path(str(spec.kafka.ca_file or ""))
+            if not ca_path.is_absolute():
+                ca_path = Path.cwd() / ca_path
+            if not ca_path.is_file():
+                bundled_ca = Path(__file__).parents[2] / "examples/minimal-trpc-kafka-event/ca.pem"
+                ca_path = bundled_ca if bundled_ca.is_file() else ca_path
+            if ca_path.is_file():
+                files["ca.pem"] = ca_path.read_text(encoding="utf-8")
+        if spec.deploy.enabled and spec.exposure.type == "ingress":
             files["k8s/ingress.yaml"] = self._render("k8s/ingress.yaml.j2", {"spec": spec})
-        if spec.exposure.type == "loadBalancer":
+        if spec.deploy.enabled and spec.exposure.type == "loadBalancer":
             files["k8s/service-lb.yaml"] = self._render("k8s/service-lb.yaml.j2", {"spec": spec})
         return files
 
