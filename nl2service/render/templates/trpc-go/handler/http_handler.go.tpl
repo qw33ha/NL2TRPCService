@@ -10,11 +10,21 @@ import (
 {% endif %}
 )
 
-type HTTPHandler struct{}
+type HTTPHandler struct {
+{% if rpc_enabled %}
+	service *{{ handler_type_name }}
+{% endif %}
+}
 
+{% if rpc_enabled %}
+func NewHTTPHandler(service *{{ handler_type_name }}) *HTTPHandler {
+	return &HTTPHandler{service: service}
+}
+{% else %}
 func NewHTTPHandler() *HTTPHandler {
 	return &HTTPHandler{}
 }
+{% endif %}
 
 func (h *HTTPHandler) Register() {
 {% for api in http_apis %}

@@ -37,5 +37,3 @@ class MainAgentSessionState:
         if path.strip() and content:
             self.reference_files[path.strip()] = content
 
-
-SpecBuilderSessionState = MainAgentSessionState

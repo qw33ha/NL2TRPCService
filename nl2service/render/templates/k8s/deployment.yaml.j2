@@ -17,7 +17,14 @@ spec:
         - name: {{ spec.service.name }}
           image: ghcr.io/{{ spec.repo.owner }}/{{ spec.repo.name }}:latest
           ports:
-            - containerPort: 8080
+{% if spec.service.enable_http %}
+            - name: http
+              containerPort: 8080
+{% endif %}
+{% if spec.service.enable_trpc %}
+            - name: trpc
+              containerPort: 9000
+{% endif %}
 {% if spec.kafka.enabled or spec.database.enabled %}
           env:
 {% if spec.kafka.enabled %}
@@ -52,10 +59,20 @@ spec:
 {% endif %}
 {% endif %}
           readinessProbe:
+{% if spec.service.enable_http %}
             httpGet:
               path: {{ spec.exposure.health_path }}
               port: 8080
+{% else %}
+            tcpSocket:
+              port: 9000
+{% endif %}
           livenessProbe:
+{% if spec.service.enable_http %}
             httpGet:
               path: {{ spec.exposure.health_path }}
               port: 8080
+{% else %}
+            tcpSocket:
+              port: 9000
+{% endif %}

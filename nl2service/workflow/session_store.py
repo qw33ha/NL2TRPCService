@@ -30,6 +30,8 @@ class WorkflowSessionStore:
             "user_request": data.get("user_request", ""),
             "model": data.get("model"),
             "target_phase": data.get("target_phase", "draft"),
+            "last_agent_action": data.get("last_agent_action"),
+            "agent_notes": data.get("agent_notes", structured["agent_notes"]),
             "additional_context": data.get("additional_context", []),
             "clarification_history": data.get("clarification_history", []),
             "notes": data.get("notes", []),

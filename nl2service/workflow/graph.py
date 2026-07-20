@@ -4,11 +4,10 @@ from pathlib import Path
 
 from langgraph.graph import END, START, StateGraph
 
-from nl2service.agent.code_refiner import CodeRefinerAgent, CodeRefinerError
 from nl2service.agent.ambiguity import AmbiguityAnalyzer
+from nl2service.agent.context_builder import build_main_agent_session
+from nl2service.agent.main_agent import MainAgentError, MainLLMAgent
 from nl2service.agent.provider import LLMProvider
-from nl2service.agent.session import ClarificationTurn, MainAgentSessionState
-from nl2service.agent.spec_builder import SpecBuilderAgent
 from nl2service.build.go_repair import DeterministicGoRepair
 from nl2service.build.verify import GoBuildVerifier
 from nl2service.render.renderer import ProtoContractError, ServiceRenderer
@@ -277,14 +276,15 @@ class NL2ServiceWorkflow:
         return "build_spec"
 
     def _build_spec_node(self, state: WorkflowState) -> WorkflowState:
-        session = MainAgentSessionState(
-            user_request=state.get("user_request", ""),
-            draft_spec=state.get("draft_spec"),
-            additional_context=list(state.get("additional_context", [])),
-            clarification_history=[ClarificationTurn(**turn) for turn in state.get("clarification_history", [])],
-            rendered_files=dict(state.get("rendered_files", {})),
-        )
-        result = SpecBuilderAgent(model=state.get("model"), provider=self.provider).build_from_session(session)
+        session = build_main_agent_session(state)
+        try:
+            result = MainLLMAgent(model=state.get("model"), provider=self.provider).draft_spec(session)
+        except MainAgentError as exc:
+            state["status"] = "error"
+            state["error"] = str(exc)
+            return state
+        state["last_agent_action"] = "draft_spec"
+        state["agent_notes"] = ["Main agent produced or updated the structured service specification."]
         state["draft_spec"] = result.spec
         state["notes"] = result.notes
         state["extracted_fields"] = result.extracted_fields
@@ -505,21 +505,16 @@ class NL2ServiceWorkflow:
             state["status"] = "error"
             state["error"] = "No draft spec available for code refinement."
             return state
-        session = MainAgentSessionState(
-            user_request=state.get("user_request", ""),
-            draft_spec=spec,
-            additional_context=list(state.get("additional_context", [])),
-            clarification_history=[ClarificationTurn(**turn) for turn in state.get("clarification_history", [])],
-            rendered_files=dict(state.get("rendered_files", {})),
-            reference_files=dict(state.get("example_reference_files", {})),
-        )
+        session = build_main_agent_session(state)
         try:
-            result = CodeRefinerAgent(model=state.get("model"), provider=self.provider).refine_session(session)
-        except CodeRefinerError as exc:
+            result = MainLLMAgent(model=state.get("model"), provider=self.provider).refine_code(session)
+        except MainAgentError as exc:
             state["status"] = "error"
             state["error"] = str(exc)
             return state
 
+        state["last_agent_action"] = "refine_code"
+        state["agent_notes"] = ["Main agent refined the rendered scaffold using the current spec and references."]
         state["rendered_files"] = result.files
         state["refinement_notes"] = result.notes
         output_dir = state.get("output_dir")
@@ -645,23 +640,21 @@ class NL2ServiceWorkflow:
             state["error"] = None
             return state
 
-        session = MainAgentSessionState(
-            user_request=state.get("user_request", ""),
-            draft_spec=spec,
+        session = build_main_agent_session(
+            state,
             additional_context=repair_context,
-            clarification_history=[ClarificationTurn(**turn) for turn in state.get("clarification_history", [])],
-            rendered_files=dict(state.get("rendered_files", {})),
-            reference_files=dict(state.get("example_reference_files", {})),
             repair_feedback=feedback,
         )
         previous_files = dict(state.get("rendered_files", {}))
         try:
-            result = CodeRefinerAgent(model=state.get("model"), provider=self.provider).refine_session(session)
-        except CodeRefinerError as exc:
+            result = MainLLMAgent(model=state.get("model"), provider=self.provider).refine_code(session)
+        except MainAgentError as exc:
             state["status"] = "error"
             state["error"] = str(exc)
             return state
 
+        state["last_agent_action"] = "repair_code"
+        state["agent_notes"] = ["Main agent applied build feedback to repair generated files."]
         notes = list(result.notes)
         source = failure.get("source", "local_build") if failure else "local_build"
         stage = failure.get("stage", "local_build") if failure else "local_build"

@@ -301,7 +301,7 @@ class AgentSession:
         return {
             "original_request": state.get("user_request", ""),
             "clarification_history": list(state.get("clarification_history", []))[-20:],
-            "agent_notes": list(state.get("notes", []))[-10:],
+            "agent_notes": list(state.get("agent_notes", []))[-10:],
         }
 
     @staticmethod

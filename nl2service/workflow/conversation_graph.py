@@ -124,6 +124,8 @@ class ConversationalServiceWorkflow:
             item for item in review.items
             if item.key not in resolved and item.question.strip().lower() not in asked_questions
         ][:5]
+        state["last_agent_action"] = "analyze_ambiguity"
+        state["agent_notes"] = ["Conversation workflow reviewed the current spec for unresolved ambiguities."]
         state["ambiguity_items"] = [item.model_dump(mode="json") for item in fresh_items]
         optional_assumptions = [item.reason for item in fresh_items if item.priority == "optional"]
         state["accepted_assumptions"] = list(
@@ -162,6 +164,8 @@ class ConversationalServiceWorkflow:
         else:
             state["status"] = "validated"
             return state
+        state["last_agent_action"] = "ask_clarification"
+        state["agent_notes"] = ["Conversation workflow is waiting on a targeted clarification before continuing."]
         state["clarification_items"] = [item_data]
         response = interrupt(
             {
@@ -244,6 +248,8 @@ class ConversationalServiceWorkflow:
             return state
         summary = self.core.gate_builder.build(spec).to_lines()
         summary.extend(f"Assumption: {item}" for item in state.get("accepted_assumptions", []))
+        state["last_agent_action"] = "request_approval"
+        state["agent_notes"] = ["Conversation workflow prepared a gate summary and is requesting user approval."]
         state["gate_summary_lines"] = summary
         response = interrupt({"kind": "approval", "question": "Should I generate and build this service?", "summary": summary})
         if isinstance(response, dict) and response.get("field_updates"):
@@ -272,6 +278,8 @@ class ConversationalServiceWorkflow:
             state["status"] = "error"
             state["error"] = "No specification is available for protocol validation."
             return state
+        state["last_agent_action"] = "ensure_proto"
+        state["agent_notes"] = ["Conversation workflow is checking whether a proto contract is required before rendering."]
         if not spec.service.enable_trpc:
             state["status"] = "proto_ready"
             return state
@@ -314,6 +322,8 @@ class ConversationalServiceWorkflow:
             state["status"] = "error"
             state["error"] = "No specification is available for GitHub delivery."
             return state
+        state["last_agent_action"] = "request_github_delivery"
+        state["agent_notes"] = ["Conversation workflow is requesting confirmation before GitHub delivery."]
         response = interrupt(
             {
                 "kind": "github_approval",

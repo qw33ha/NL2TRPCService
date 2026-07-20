@@ -11,6 +11,8 @@ class WorkflowState(TypedDict):
     user_request: str
     model: str | None
     target_phase: str
+    last_agent_action: str | None
+    agent_notes: list[str]
     additional_context: list[str]
     clarification_history: list[dict[str, str]]
     notes: list[str]
@@ -113,6 +115,8 @@ class DeliveryReportState(TypedDict):
 
 def structured_state_defaults() -> dict[str, Any]:
     return {
+        "last_agent_action": None,
+        "agent_notes": [],
         "ambiguity_items": [],
         "resolved_ambiguities": [],
         "accepted_assumptions": [],
