@@ -19,10 +19,6 @@ class ClarificationSession:
     spec: ServiceSpec
     items: list[ClarificationItem] = field(default_factory=list)
 
-    @property
-    def is_complete(self) -> bool:
-        return not self.items
-
 
 class ClarificationSessionBuilder:
     def __init__(self, validator: ServiceSpecValidator | None = None) -> None:

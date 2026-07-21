@@ -17,10 +17,6 @@ class ValidationIssue:
 class ValidationResult:
     issues: list[ValidationIssue] = field(default_factory=list)
 
-    @property
-    def is_valid(self) -> bool:
-        return not any(issue.severity == "error" for issue in self.issues)
-
 
 class ServiceSpecValidator:
     """Rule-based validation for required fields and unsafe settings."""
@@ -36,17 +32,6 @@ class ServiceSpecValidator:
         self._validate_database(spec, result)
         self._validate_policy(spec, result)
         return result
-
-    def clarification_questions(self, spec: ServiceSpec, require_proto: bool = False) -> list[str]:
-        result = self.validate(spec, require_proto=require_proto)
-        questions: list[str] = []
-        for issue in result.issues:
-            if issue.severity != "error":
-                continue
-            question = self.question_for_field(issue.field)
-            if question:
-                questions.append(question)
-        return questions
 
     def _validate_service(self, spec: ServiceSpec, result: ValidationResult, require_proto: bool = False) -> None:
         if not spec.service.name:

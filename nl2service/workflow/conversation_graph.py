@@ -6,7 +6,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
 from nl2service.render.renderer import ProtoContractError
-from nl2service.workflow.graph import NL2ServiceWorkflow
+from nl2service.workflow.core import WorkflowCore
 from nl2service.workflow.state import WorkflowState, clarification_to_dict
 from nl2service.workflow.updates import apply_field_updates
 
@@ -14,7 +14,7 @@ from nl2service.workflow.updates import apply_field_updates
 class ConversationalServiceWorkflow:
     """Native-interrupt graph used by the user-facing agent session."""
 
-    def __init__(self, core: NL2ServiceWorkflow, checkpointer: Any) -> None:
+    def __init__(self, core: WorkflowCore, checkpointer: Any) -> None:
         self.core = core
         self.graph = self._build_graph().compile(checkpointer=checkpointer)
 
@@ -124,7 +124,6 @@ class ConversationalServiceWorkflow:
             item for item in review.items
             if item.key not in resolved and item.question.strip().lower() not in asked_questions
         ][:5]
-        state["last_agent_action"] = "analyze_ambiguity"
         state["agent_notes"] = ["Conversation workflow reviewed the current spec for unresolved ambiguities."]
         state["ambiguity_items"] = [item.model_dump(mode="json") for item in fresh_items]
         optional_assumptions = [item.reason for item in fresh_items if item.priority == "optional"]
@@ -164,7 +163,6 @@ class ConversationalServiceWorkflow:
         else:
             state["status"] = "validated"
             return state
-        state["last_agent_action"] = "ask_clarification"
         state["agent_notes"] = ["Conversation workflow is waiting on a targeted clarification before continuing."]
         state["clarification_items"] = [item_data]
         response = interrupt(
@@ -248,7 +246,6 @@ class ConversationalServiceWorkflow:
             return state
         summary = self.core.gate_builder.build(spec).to_lines()
         summary.extend(f"Assumption: {item}" for item in state.get("accepted_assumptions", []))
-        state["last_agent_action"] = "request_approval"
         state["agent_notes"] = ["Conversation workflow prepared a gate summary and is requesting user approval."]
         state["gate_summary_lines"] = summary
         response = interrupt({"kind": "approval", "question": "Should I generate and build this service?", "summary": summary})
@@ -278,7 +275,6 @@ class ConversationalServiceWorkflow:
             state["status"] = "error"
             state["error"] = "No specification is available for protocol validation."
             return state
-        state["last_agent_action"] = "ensure_proto"
         state["agent_notes"] = ["Conversation workflow is checking whether a proto contract is required before rendering."]
         if not spec.service.enable_trpc:
             state["status"] = "proto_ready"
@@ -322,7 +318,6 @@ class ConversationalServiceWorkflow:
             state["status"] = "error"
             state["error"] = "No specification is available for GitHub delivery."
             return state
-        state["last_agent_action"] = "request_github_delivery"
         state["agent_notes"] = ["Conversation workflow is requesting confirmation before GitHub delivery."]
         response = interrupt(
             {

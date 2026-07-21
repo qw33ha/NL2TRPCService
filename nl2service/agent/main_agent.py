@@ -28,8 +28,6 @@ class RefinedRender(BaseModel):
 @dataclass(slots=True)
 class DraftBuildResult:
     spec: ServiceSpec
-    extracted_fields: list[str]
-    notes: list[str]
     model: str
 
 
@@ -64,8 +62,6 @@ class MainLLMAgent:
         spec = (self.normalizer or ServiceSpecNormalizer()).normalize(spec)
         return DraftBuildResult(
             spec=spec,
-            extracted_fields=self._collect_extracted_fields(spec),
-            notes=self._build_notes(spec),
             model=model_name,
         )
 
@@ -182,48 +178,3 @@ class MainLLMAgent:
         if isinstance(parsed, dict):
             return ServiceSpec.model_validate(parsed)
         raise MainAgentError(f"Unsupported parsed response type: {type(parsed).__name__}")
-
-    @staticmethod
-    def _collect_extracted_fields(spec: ServiceSpec) -> list[str]:
-        baseline = ServiceSpec().model_dump(mode="python")
-        current = spec.model_dump(mode="python")
-        fields: list[str] = []
-        MainLLMAgent._walk_changes(current=current, baseline=baseline, prefix="", fields=fields)
-        return fields
-
-    @staticmethod
-    def _walk_changes(current: Any, baseline: Any, prefix: str, fields: list[str]) -> None:
-        if isinstance(current, dict):
-            for key, value in current.items():
-                next_prefix = f"{prefix}.{key}" if prefix else key
-                base_value = baseline.get(key) if isinstance(baseline, dict) else None
-                MainLLMAgent._walk_changes(value, base_value, next_prefix, fields)
-            return
-        if isinstance(current, list):
-            if current and current != baseline:
-                fields.append(prefix)
-            return
-        if current in (None, "", {}, []):
-            return
-        if current != baseline:
-            fields.append(prefix)
-
-    @staticmethod
-    def _build_notes(spec: ServiceSpec) -> list[str]:
-        notes = [
-            "This draft was produced by an LLM and still needs validation, clarification, and gate approval.",
-            "Platform defaults and policy constraints were re-applied after model generation.",
-        ]
-        if spec.kafka.enabled and not spec.kafka.secret_name:
-            notes.append(
-                "Kafka credentials were intentionally left blank and must come from a Kubernetes Secret reference."
-            )
-        if spec.database.enabled and not spec.database.secret_name:
-            notes.append(
-                "Database credentials were intentionally left blank and must come from a Kubernetes Secret reference."
-            )
-        if spec.exposure.type == "loadBalancer" and not spec.policy.allow_load_balancer:
-            notes.append(
-                "LoadBalancer was requested, but policy approval still needs to be confirmed before execution."
-            )
-        return notes

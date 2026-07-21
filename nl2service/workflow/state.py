@@ -11,14 +11,10 @@ class WorkflowState(TypedDict):
     user_request: str
     model: str | None
     target_phase: str
-    last_agent_action: str | None
     agent_notes: list[str]
     additional_context: list[str]
     clarification_history: list[dict[str, str]]
-    notes: list[str]
-    extracted_fields: list[str]
     gate_confirmed: bool
-    interaction: dict[str, Any] | None
     draft_spec: NotRequired[ServiceSpec]
     validation_issues: list[dict[str, str]]
     clarification_items: list[dict[str, str]]
@@ -26,7 +22,6 @@ class WorkflowState(TypedDict):
     resolved_ambiguities: list[str]
     accepted_assumptions: list[str]
     gate_summary_lines: list[str]
-    proto_summary_lines: list[str]
     verification_summary_lines: list[str]
     build_feedback: str | None
     verification_attempts: int
@@ -34,7 +29,6 @@ class WorkflowState(TypedDict):
     refinement_notes: list[str]
     output_dir: str | None
     github_delivery: dict[str, Any]
-    github_summary_lines: list[str]
     selected_examples: list[str]
     example_reference_files: dict[str, str]
     local_build: "BuildState"
@@ -115,7 +109,6 @@ class DeliveryReportState(TypedDict):
 
 def structured_state_defaults() -> dict[str, Any]:
     return {
-        "last_agent_action": None,
         "agent_notes": [],
         "ambiguity_items": [],
         "resolved_ambiguities": [],

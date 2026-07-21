@@ -103,7 +103,7 @@ export NL2SERVICE_OPENAI_MODEL="gpt-4.1-mini"  # optional
 Start with a natural-language request:
 
 ```bash
-nl2service chat "Build an HTTP service that accepts JSON, publishes it to Kafka, and stores selected fields in MySQL when env is prod"
+nl2service "Build an HTTP service that accepts JSON, publishes it to Kafka, and stores selected fields in MySQL when env is prod"
 ```
 
 The agent continues in the same terminal, asking only for information needed to generate or
@@ -112,7 +112,7 @@ deploy the service. A conversation is durably checkpointed in `~/.nl2service/age
 If the session is interrupted, resume it using the printed thread ID:
 
 ```bash
-nl2service chat --thread <thread-id>
+nl2service --thread <thread-id>
 ```
 
 You can ask questions, correct a previous value, reject a proposal and revise it, or explicitly

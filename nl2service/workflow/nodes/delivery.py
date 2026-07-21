@@ -44,7 +44,6 @@ class GitHubActionsNodes:
                     "logs": None,
                     "poll_attempts": polls,
                 }
-                state["interaction"] = None
                 if polls >= 30:
                     return self._error(
                         state,

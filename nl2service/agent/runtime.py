@@ -13,7 +13,7 @@ from nl2service.agent.provider import LLMProvider
 from nl2service.runtime.checkpointer import SQLiteCheckpointRuntime
 from nl2service.tools.github_tool import GitHubApiProvider, GitHubProvider
 from nl2service.workflow.conversation_graph import ConversationalServiceWorkflow
-from nl2service.workflow.graph import NL2ServiceWorkflow
+from nl2service.workflow.core import WorkflowCore
 from nl2service.workflow.state import WorkflowState, structured_state_defaults
 
 
@@ -27,7 +27,7 @@ class AgentSession:
     ) -> None:
         self.model = model
         self.runtime = SQLiteCheckpointRuntime(database_path)
-        self.core = NL2ServiceWorkflow(
+        self.core = WorkflowCore(
             model=model,
             provider=provider or LLMProvider(),
             github_provider=github_provider or GitHubApiProvider(),
@@ -119,14 +119,10 @@ class AgentSession:
             "target_phase": "deliver",
             "additional_context": [],
             "clarification_history": [],
-            "notes": [],
-            "extracted_fields": [],
             "gate_confirmed": False,
-            "interaction": None,
             "validation_issues": [],
             "clarification_items": [],
             "gate_summary_lines": [],
-            "proto_summary_lines": [],
             "verification_summary_lines": [],
             "build_feedback": None,
             "verification_attempts": 0,
@@ -134,7 +130,6 @@ class AgentSession:
             "refinement_notes": [],
             "output_dir": str(Path("generated") / thread_id),
             "github_delivery": {},
-            "github_summary_lines": [],
             "status": "starting",
             "error": None,
         }

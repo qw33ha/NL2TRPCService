@@ -20,20 +20,3 @@ class MainAgentSessionState:
     rendered_files: dict[str, str] = field(default_factory=dict)
     reference_files: dict[str, str] = field(default_factory=dict)
     repair_feedback: str | None = None
-
-    def add_context(self, text: str) -> None:
-        if text.strip():
-            self.additional_context.append(text.strip())
-
-    def add_clarification(self, question: str, answer: str) -> None:
-        if question.strip() and answer.strip():
-            self.clarification_history.append(ClarificationTurn(question=question.strip(), answer=answer.strip()))
-
-    def add_rendered_file(self, path: str, content: str) -> None:
-        if path.strip() and content:
-            self.rendered_files[path.strip()] = content
-
-    def add_reference_file(self, path: str, content: str) -> None:
-        if path.strip() and content:
-            self.reference_files[path.strip()] = content
-

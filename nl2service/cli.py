@@ -65,7 +65,7 @@ def chat(
                 break
             message = typer.prompt("You")
     except (KeyboardInterrupt, EOFError):
-        typer.echo(f"\nConversation paused. Continue later with: nl2service chat --thread {thread_id}")
+        typer.echo(f"\nConversation paused. Continue later with: nl2service --thread {thread_id}")
     finally:
         session.close()
 
