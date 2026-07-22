@@ -12,7 +12,8 @@ spec:
     - name: http
       port: 80
       targetPort: 8080
-{% elif spec.service.enable_trpc %}
+{% endif %}
+{% if spec.service.enable_trpc %}
     - name: trpc
       port: 9000
       targetPort: 9000

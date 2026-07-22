@@ -1,0 +1,26 @@
+[
+  {
+    "name": "unused import",
+    "feedback": "vet: ./main.go:5:2: \"encoding/json\" imported and not used",
+    "path": "main.go",
+    "content": "package main\n\nimport (\n\t\"encoding/json\"\n\t\"fmt\"\n)\n\nfunc main() { fmt.Println(\"ok\") }\n",
+    "expected_contains": "\"fmt\"",
+    "expected_absent": "\"encoding/json\""
+  },
+  {
+    "name": "trpc close signature",
+    "feedback": "not enough arguments in call to s.Close\nhave ()\nwant (chan struct{})",
+    "path": "main.go",
+    "content": "package main\nfunc stop() {\n\tif err := s.Close(); err != nil {\n\t\tpanic(err)\n\t}\n}\n",
+    "expected_contains": "s.Close(done)",
+    "expected_absent": "s.Close()"
+  },
+  {
+    "name": "missing kafka registration",
+    "feedback": "undefined: handler.RegisterKafkaConsumers",
+    "path": "main.go",
+    "content": "package main\nfunc register() {\n\thandler.RegisterKafkaConsumers(s)\n}\n",
+    "expected_contains": "trpckafka.RegisterKafkaConsumerService(s, handler.NewKafkaConsumer())",
+    "expected_absent": "handler.RegisterKafkaConsumers(s)"
+  }
+]
