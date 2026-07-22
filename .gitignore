@@ -8,6 +8,8 @@ __pycache__/
 
 # Packaging
 build/
+!nl2service/build/
+!nl2service/build/*.py
 dist/
 *.egg-info/
 .eggs/
