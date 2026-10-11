@@ -2,6 +2,7 @@
 import math
 import statistics
 from collections import Counter
+from nl2service.evaluation.workflow_metrics import workflow_metrics
 
 
 def rate(passed, total):
@@ -54,6 +55,7 @@ def summarize(results, grouped=True):
         for task_id in sorted({item.get("id", "unknown") for item in results})
     } if all("id" in item for item in results) else {}
     if grouped:
+        metrics["workflows"] = workflow_metrics(results)
         for field in ("split", "category"):
             metrics["by_" + field] = {key: summarize([item for item in results if item.get(field) == key], grouped=False)
                                      for key in sorted({item[field] for item in results if field in item})}

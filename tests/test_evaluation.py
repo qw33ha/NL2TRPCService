@@ -50,11 +50,21 @@ def test_generated_paths_cannot_escape(tmp_path, path):
 
 
 def test_build_failure_is_reported_and_bounded(monkeypatch):
+    from nl2service.agent.main_agent import MainLLMAgent, RefinementResult
+    original = MainLLMAgent.refine_code
+    def changing_repair(self, session):
+        if session.repair_feedback:
+            files = dict(session.rendered_files)
+            files["handler/evaluation_test.go"] = files.get("handler/evaluation_test.go", "") + "\n// retry\n"
+            return RefinementResult(files=files, notes=[], model="controlled-test")
+        return original(self, session)
+    monkeypatch.setattr(MainLLMAgent, "refine_code", changing_repair)
     monkeypatch.setattr("nl2service.build.verify.GoBuildVerifier.verify", lambda self, files: BuildVerificationResult(success=False, feedback="intentional build failure", exit_code=1))
     result = run_task(load_tasks(Path("nl2service/evaluation/tasks.jsonl"))[0])
     assert not result["passed"]
     assert "3 automatic repair attempts" in result["error"]
     assert "repair" in [item["node"] for item in result["trace"]]
+    assert sum(item["node"] == "repair" for item in result["trace"]) == 3
 
 
 def test_scoring_assertions_are_not_sent_to_repair(monkeypatch):

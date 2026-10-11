@@ -209,6 +209,18 @@ Replay validates orchestration and scaffolding with known structured outputs; it
 LLM capability baseline. These small fixed benchmarks do not estimate production success rates.
 Token counts are measured; no dollar cost is inferred. The CLI exits nonzero for failed trials.
 
+Workflow metrics separate trigger coverage, repair entry, compile recovery and post-repair
+behavior success. Synthetic and naturally occurring compile failures have separate denominators.
+Clarification, requirement-update and checkpoint tasks retain their final task-success rates.
+Protocol rejection is measured both across planned tasks and conditional on actually reaching
+the protocol interrupt; missing fixture answers remain strict failures and are reported as
+evaluation blocks. No failures means repair effectiveness is unavailable, not 100 percent.
+Build attempts retain diagnostics and exit codes, and results include repair-history changes.
+Regression tests cover successful repair with diagnostic feedback, unchanged repair output,
+bounded retry exhaustion, behavior-only failure, clarification resume, corrected requirements,
+checkpoint recreation, invalid protocol rejection, and blocked external delivery.
+Controlled replay tests validate workflow mechanics; live results provide model evidence.
+
 ## Next version
 
 The current milestone proves the complete path from conversation to a deployed service. A

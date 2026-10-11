@@ -173,7 +173,8 @@ class EvaluationVerifier:
             files = {**files, "handler/evaluation_fault.go": "package handler\nvar evaluationFault = missingEvaluationSymbol\n"}
             self.fault_injected = True
         result = GoBuildVerifier().verify(files)
-        self.builds.append({"status": "passed" if result.success else "failed", "command": result.command})
+        self.builds.append({"status": "passed" if result.success else "failed", "command": result.command,
+                            "feedback": result.feedback, "exit_code": result.exit_code})
         if self.fault_injected and not result.synchronized_files:
             result.synchronized_files = files
         return result
@@ -304,7 +305,8 @@ def run_task(task: Task, *, live: bool = False, execute_behavior: bool = False, 
             "build_attempts": builds, "behavior": behavior, "model_calls": tracker.calls,
             "behavior_attempts": evaluator.behaviors if evaluator else [], "behavior_case_count": len(task.behavior_cases),
             "failure_stage": failure_stage, "fault_injected": evaluator.fault_injected, "build_required": not bool(task.invalid_proto),
-            "checkpoint_restarts": checkpoint_restarts, "dialogue": dialogue}
+            "checkpoint_restarts": checkpoint_restarts, "dialogue": dialogue,
+            "repair_history": result.get("repair_history", [])}
 
 
 def main():

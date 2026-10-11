@@ -69,7 +69,11 @@ class ConversationalServiceWorkflow:
                 "end": END,
             },
         )
-        graph.add_edge("repair", "verify_build")
+        graph.add_conditional_edges(
+            "repair",
+            lambda state: "stop" if state.get("status") == "error" else "verify",
+            {"stop": END, "verify": "verify_build"},
+        )
         graph.add_conditional_edges(
             "approve_github",
             self._route_after_github_approval,
