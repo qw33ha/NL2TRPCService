@@ -214,7 +214,7 @@ class ConversationalServiceWorkflow:
         if item_data.get("ambiguity_key") or (isinstance(response, dict) and response.get("contextual")):
             history = list(state.get("clarification_history", []))
             raw_answer = response.get("raw_answer") if isinstance(response, dict) else None
-            history.append({"question": item_data["question"], "answer": str(raw_answer or answer)})
+            history.append({"question": item_data["question"], "answer": str(raw_answer or answer), "field": item_data["field"]})
             state["clarification_history"] = history
             state["resolved_ambiguities"] = list(
                 dict.fromkeys([*state.get("resolved_ambiguities", []), item_data["ambiguity_key"]])
@@ -226,7 +226,7 @@ class ConversationalServiceWorkflow:
         state["draft_spec"] = apply_field_updates(spec, {item_data["field"]: answer})
         history = list(state.get("clarification_history", []))
         raw_answer = response.get("raw_answer") if isinstance(response, dict) else None
-        history.append({"question": item_data["question"], "answer": str(raw_answer or answer)})
+        history.append({"question": item_data["question"], "answer": str(raw_answer or answer), "field": item_data["field"]})
         state["clarification_history"] = history
         ambiguity_key = item_data.get("ambiguity_key")
         if ambiguity_key:

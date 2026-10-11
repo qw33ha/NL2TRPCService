@@ -163,6 +163,37 @@ nl2service/runtime/     durable checkpoints and CI monitoring
 examples/               verified tRPC-Go integration references
 ```
 
+## Evaluation harness
+
+Run the production LangGraph with isolated SQLite checkpoints, temporary generated projects,
+real Go tidy/vet/test/build commands, and black-box HTTP tests of the complete generated binary:
+
+```powershell
+.venv/Scripts/python.exe -m nl2service.evaluation --live --repeats 3 --report evaluation-report-live.json --artifacts evaluation-artifacts
+```
+
+The bundled JSONL tasks cover HTTP generation, multiple endpoints, and clarification/resume.
+Replay mode uses known structured model outputs and measures orchestration and scaffold
+regressions, not natural-language understanding or business-logic accuracy. The replay scaffold
+does not implement the task's JSON business behavior, so it is an intentionally incomplete baseline
+for the black-box checks. `--skip-behavior` runs the compile-only replay regression used in CI.
+Replay also injects a handler smoke test; custom replay tasks must include a Health handler.
+`--live` uses the configured LLM provider and does not inject the replay smoke test.
+Model credentials are required only for live mode. Scripted clarification answers belong to the
+task fixture and are recorded as clarification turns, not inferred from expected HTTP outputs.
+GitHub operations are blocked in both modes; delivery approval is always declined.
+The HTTP checks use loopback ports and validate health JSON, echo content, invalid JSON,
+unsupported content types, oversized requests and unsupported methods. Runtime failures enter
+the production repair loop; the evaluator never changes assertions to accommodate generated code.
+Reports include first/final compile success, task success, behavior case success and coverage,
+repair/clarification counts, mean/median/p95 latency, actual model token usage, per-task repeat
+results, command logs and environment/dataset provenance. Rates include numerators and
+denominators; unattempted tasks are failures in all-task rates, and unavailable measurements
+are null. This three-task dataset is a regression benchmark, not a representative production
+success-rate estimate. No USD cost is inferred from token counts.
+The CLI returns nonzero for any failed task. Run `python -m pytest -q` separately for
+the complete Python regression suite. Retained artifacts are local and must be reviewed before use.
+
 ## Next version
 
 The current milestone proves the complete path from conversation to a deployed service. A

@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from nl2service.render.paths import safe_destination
 
 
 @dataclass(slots=True)
@@ -54,6 +55,7 @@ class GoBuildVerifier:
                 [
                     [go_bin, "mod", "tidy"],
                     [go_bin, "vet", "./..."],
+                    [go_bin, "test", "./..."],
                     [go_bin, "build", "./..."],
                 ]
             )
@@ -85,12 +87,15 @@ class GoBuildVerifier:
 
         summary_lines = [
             "Build verification succeeded.",
-            "Commands passed: trpc create (if needed), go mod tidy, go vet ./..., go build ./...",
+            "Commands passed: trpc create (if needed), go mod tidy, go vet ./..., go test ./..., go build ./...",
         ]
         return BuildVerificationResult(
             success=True,
             summary_lines=summary_lines,
-            feedback="Build verification succeeded.",
+            feedback="\n".join(
+                f"COMMAND: {' '.join(command)}\nEXIT CODE: {result.returncode}\n{result.stdout}{result.stderr}"
+                for command, result in completed
+            ),
             command="go build ./...",
             exit_code=0,
             synchronized_files=synchronized_files,
@@ -115,7 +120,7 @@ class GoBuildVerifier:
     def _write_tree(self, files: dict[str, str], out_dir: Path) -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
         for relative_path, content in files.items():
-            destination = out_dir / relative_path
+            destination = safe_destination(out_dir, relative_path)
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text(content, encoding="utf-8")
 

@@ -37,6 +37,8 @@ Rules:
 - Preserve the project structure and deployment files unless a small targeted fix is necessary.
 - Keep the runtime as trpc-go and keep Kubernetes/GitHub delivery placeholders safe.
 - Respect the generated transport shape: pure tRPC, pure HTTP, or combined tRPC+HTTP.
+- Preserve trpc.NewServer(), configured service names, and s.Serve() in main.go. HTTP-only still uses the tRPC-Go server and http_no_protocol transport. Never pass nil to RegisterNoProtocolService and never replace the framework entry point with http.ListenAndServe or a hardcoded listener; keep -conf support.
+- HTTP routes must register through thttp.HandleFunc from trpc.group/trpc-go/trpc-go/http with handlers of signature func(http.ResponseWriter, *http.Request) error. net/http.HandleFunc registers the wrong router and produces 404 under http_no_protocol. Preserve the scaffold's route registration pattern.
 - Improve code correctness and completeness, especially request handling, response handling, health endpoints, configuration wiring, and README instructions.
 - If build, vet, or code-generation errors are supplied in the context, prioritize fixing those errors first.
 - Do not invent real credentials, tokens, secrets, cluster names, or external hosts.

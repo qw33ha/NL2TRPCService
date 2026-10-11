@@ -8,6 +8,7 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from nl2service.spec.models import EndpointSpec, ServiceSpec
+from nl2service.render.paths import safe_destination
 
 
 class ProtoContractError(ValueError):
@@ -101,7 +102,7 @@ class ServiceRenderer:
     def write_tree(self, files: dict[str, str], out_dir: Path) -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
         for relative_path, content in files.items():
-            destination = out_dir / relative_path
+            destination = safe_destination(out_dir, relative_path)
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text(content, encoding="utf-8")
 

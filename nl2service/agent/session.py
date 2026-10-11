@@ -9,6 +9,7 @@ from nl2service.spec.models import ServiceSpec
 class ClarificationTurn:
     question: str
     answer: str
+    field: str | None = None
 
 
 @dataclass(slots=True)

@@ -18,3 +18,21 @@ jobs:
           cache: pip
       - run: python -m pip install -e '.[dev]'
       - run: python -m pytest -q
+  evaluation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.x"
+          cache: false
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m nl2service.evaluation --skip-behavior --report evaluation-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evaluation-report
+          path: evaluation-report.json
