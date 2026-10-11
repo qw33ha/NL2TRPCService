@@ -221,6 +221,33 @@ bounded retry exhaustion, behavior-only failure, clarification resume, corrected
 checkpoint recreation, invalid protocol rejection, and blocked external delivery.
 Controlled replay tests validate workflow mechanics; live results provide model evidence.
 
+### LLM-as-a-Judge
+
+```powershell
+.venv/Scripts/python.exe -m nl2service.evaluation.judge --controls --repeats 2 --report judge-controls.json
+.venv/Scripts/python.exe -m nl2service.evaluation.judge --source-report evaluation-report-v2-full.json --artifacts evaluation-artifacts-full --generation-repeat 1 --repeats 2 --report judge-full.json
+```
+
+The independent judge defaults to `gpt-4.1-2025-04-14`, distinct from the generation model.
+It grades semantic planning on anchored 0-4 rubrics: requirement alignment, clarification
+quality and specification consistency. Scores of at least 3 satisfy a dimension. The judge
+sees only the request, dialogue (including later corrections) and actual saved specification.
+Profile labels, model identities, executable test scores and expected HTTP assertions are hidden.
+Judge feedback never enters generation or repair; executable correctness remains separately tested.
+
+Evidence references resolve to numbered immutable excerpts; invented IDs are rejected.
+Structured output validates score bounds and evidence requirements. Missing specifications
+require abstention, not an automatic zero or pass. Repeated judgments report exact-score and
+pass/fail consistency. Reports preserve input/rubric hashes, usage, invalid judgments and
+partial progress. A review CSV has blank human-score columns for later independent annotation.
+
+Five synthetic sanity cases cover aligned/contradictory specifications, redundant clarification,
+missing evidence and an instruction-injection attempt. These check evaluator mechanics and
+obvious rubric distinctions; they are not expert-human calibration. Repeat agreement does not
+establish judge accuracy. No human-alignment claim is made without independently collected labels.
+An offline judge can still be lenient, biased or wrong; inspect its evidence and keep the
+deterministic build/HTTP/CI metrics alongside semantic scores.
+
 ### CI/CD evaluation
 
 ```powershell
