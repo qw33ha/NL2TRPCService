@@ -243,6 +243,20 @@ of service endpoint health; container builds, remote runs and health checks need
 Remote evaluations must use an explicit test repository and an isolated branch with a CI-only
 workflow. The regular baseline never pushes, publishes images or deploys.
 
+An explicitly authorized remote fault/repair experiment can be run with a repository-scoped
+`GITHUB_TOKEN` (Contents and Workflows write, Actions read) and `OPENAI_API_KEY`:
+
+```powershell
+.venv/Scripts/python.exe -m nl2service.evaluation.remote_ci --execute --repository owner/test-repo --branch evaluation/cicd-unique-name --report evaluation-report-remote-ci.json
+```
+
+This opt-in command creates a fresh remote branch, replaces its single workflow with the fixed
+CI-only evaluation workflow, injects a compiler error, reads real Actions diagnostics, invokes
+production repair and local verification, and submits a repaired commit to that branch.
+It evaluates remote build/test and container build; it never publishes an image or deploys.
+It refuses extra/modified workflows, existing evaluation branches and unisolated branch names.
+Interrupted or permission-blocked runs preserve partial reports and must not be called successes.
+
 ## Next version
 
 The current milestone proves the complete path from conversation to a deployed service. A
