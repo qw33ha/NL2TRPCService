@@ -54,7 +54,10 @@ class AmbiguityAnalyzer:
                         "ServiceSpec field only when the answer directly changes that field. Leave field null for open-ended "
                         "behavioral requirements, schema details, business rules, explanations, and other information that "
                         "belongs in conversational context rather than the structured generation spec. Do not repeat "
-                        "resolved keys or questions already answered in history. Return at most five items. Do not turn "
+                        "resolved keys or questions already answered in history. Answers in clarification history override "
+                        "the original request: once deployment is declined, do not ask whether to deploy again. "
+                        "When deployment is disabled, exposure type and Kubernetes probe configuration are irrelevant "
+                        "and must not create blocking or important questions. Return at most five items. Do not turn "
                         "minor implementation preferences into questions. Do not ask users to define internal platform "
                         "policy fields such as policy.require_gate. Treat one replica and framework defaults as optional "
                         "unless the user raised scaling. Avoid duplicate questions about the same behavior. List fields "
@@ -75,6 +78,15 @@ class AmbiguityAnalyzer:
         review.items = [
             item for item in review.items
             if item.field is None or self._is_scalar_field(spec, item.field)
+        ]
+        answered_fields = {turn.get("field") for turn in history if turn.get("field")}
+        review.items = [
+            item for item in review.items
+            if item.field not in answered_fields
+            and item.field != "policy.require_gate"
+            and not (spec.deploy.enabled is False and item.field and (
+                item.field.startswith("exposure.") or (item.field.startswith("deploy.") and item.field != "deploy.enabled")
+            ))
         ]
         return review
 

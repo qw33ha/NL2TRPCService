@@ -1,0 +1,2 @@
+nl2service/evaluation/*.jsonl text eol=lf
+nl2service/evaluation/benchmark-manifest.json text eol=lf

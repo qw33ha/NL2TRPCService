@@ -17,21 +17,13 @@ class GitHubActionsNodes:
         owner = str(delivery.get("owner") or "").strip()
         repo = str(delivery.get("repo") or "").strip()
         commit_sha = str(delivery.get("commit_sha") or "").strip()
-        if not owner or not repo:
+        if not owner or not repo or not commit_sha:
             return self._error(state, "GitHub Actions monitoring requires owner, repo, and commit SHA.")
 
         try:
-            if not commit_sha:
-                runs = self.provider.get_workflow_runs(owner, repo)
-                latest = next((run for run in runs if run.commit_sha), None)
-                if latest is None:
-                    return self._error(
-                        state,
-                        "GitHub Actions monitoring could not recover the delivered commit SHA.",
-                    )
-                commit_sha = str(latest.commit_sha)
-                state["github_delivery"] = {**delivery, "commit_sha": commit_sha}
             run = self.provider.get_workflow_run_for_commit(owner, repo, commit_sha)
+            if run and run.commit_sha != commit_sha:
+                return self._error(state, "GitHub Actions returned a run for a different or missing commit SHA.")
             polls = int(state.get("ci_run", {}).get("poll_attempts", 0)) + 1
             if run is None or run.status != "completed":
                 state["ci_run"] = {
@@ -55,6 +47,8 @@ class GitHubActionsNodes:
 
             if run.conclusion == "success":
                 return self._record_success(state, owner, repo, commit_sha, run, polls)
+            if run.conclusion != "failure":
+                return self._error(state, f"GitHub Actions ended with {run.conclusion}; no code repair was attempted.")
             return self._record_failure(state, owner, repo, commit_sha, run, polls)
         except GitHubAPIError as exc:
             return self._error(state, str(exc))
@@ -63,6 +57,10 @@ class GitHubActionsNodes:
         spec = state.get("draft_spec")
         deploy_enabled = bool(spec and spec.deploy.enabled)
         namespace = spec.deploy.namespace if deploy_enabled and spec else None
+        if deploy_enabled:
+            jobs = self.provider.get_workflow_jobs(owner, repo, run.run_id)
+            if not any(job.name.lower() == "deploy" and job.status == "completed" and job.conclusion == "success" for job in jobs):
+                return self._error(state, "Workflow succeeded but no successful deploy job was found; deployment is unverified.")
         success_logs = self.provider.get_workflow_logs(owner, repo, run.run_id)
         digest_match = re.search(r"digest:\s*(sha256:[0-9a-f]{64})", success_logs)
         state["ci_run"] = {
@@ -127,6 +125,8 @@ class GitHubActionsNodes:
             "commit_sha": commit_sha,
             "signature": signature,
         }
+        if source == "deployment" and any(marker in logs.lower() for marker in ("permission denied", "(forbidden)", "unauthorized")):
+            return self._error(state, f"Deployment requires external access or permission changes; automatic code repair was not attempted.\n\n{feedback}")
         prior = [item for item in state.get("repair_history", []) if item.get("source") == source]
         if any(item.get("signature") == signature for item in prior):
             return self._error(
@@ -175,6 +175,8 @@ class GitHubActionsNodes:
 
     @staticmethod
     def route(state: WorkflowState) -> str:
+        if state.get("status") == "awaiting_github_actions":
+            return "await"
         if state.get("status") == "github_actions_failed":
             return "repair_build_errors"
         if state.get("status") == "deployment_succeeded":

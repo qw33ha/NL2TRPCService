@@ -1,0 +1,26 @@
+{
+  "version": "nl2service-benchmark-v2",
+  "dataset_sha256": "61de367878a4d9cfb57b8dc79eaa618d0befb7edce27c1b6697e454a68e1f75f",
+  "model": "gpt-4.1-mini-2025-04-14",
+  "repeats": 3,
+  "splits": {
+    "development": [
+      "http-health",
+      "http-multiple",
+      "clarify-deployment",
+      "input-boundaries",
+      "requirement-update",
+      "compiler-recovery"
+    ],
+    "acceptance": [
+      "quote-business",
+      "invalid-protocol"
+    ]
+  },
+  "profiles": {
+    "full": "Production graph: ambiguity analysis, examples, deterministic repair and up to three LLM repairs.",
+    "simplified": "Same graph, draft/refine model and deterministic skeleton/repair; no ambiguity LLM, example retrieval or LLM repair."
+  },
+  "scoring": "Final HTTP assertions run once after generation and are not supplied to model repair. Invalid protocol must re-interrupt before render. Compiler fault is injected identically in both profiles.",
+  "acceptance_policy": "Do not tune generation on acceptance results during this benchmark version. Any future tuning promotes those tasks to development and requires new acceptance tasks."
+}

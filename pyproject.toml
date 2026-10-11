@@ -32,5 +32,8 @@ include-package-data = true
 [tool.setuptools.packages.find]
 include = ["nl2service*"]
 
+[tool.setuptools.package-data]
+nl2service = ["render/templates/**/*", "evaluation/*.jsonl", "evaluation/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

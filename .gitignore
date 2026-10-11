@@ -43,3 +43,6 @@ ca.pem
 
 # Generated example outputs
 dummy/
+evaluation-report*.json
+evaluation-report*.txt
+evaluation-artifacts/

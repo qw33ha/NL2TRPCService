@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import re
 from typing import Any, Literal, TypeVar
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -75,12 +76,56 @@ class MainLLMAgent:
         )
         files = dict(session.rendered_files)
         files.update(parsed.files)
+        # The simple HTTP skeleton owns server startup and route registration.
+        # Model changes belong in handler bodies; replacing the framework router
+        # can compile while silently serving 404 for every endpoint.
+        spec = session.draft_spec
+        preserved = False
+        if spec and spec.service.enable_http and not spec.service.enable_trpc and not spec.database.enabled and not spec.kafka.enabled:
+            if "main.go" in session.rendered_files:
+                preserved = files.get("main.go") != session.rendered_files["main.go"]
+                files["main.go"] = session.rendered_files["main.go"]
+            path = "handler/http_handler.go"
+            original = session.rendered_files.get(path, "")
+            refined = files.get(path, "")
+            source_span = self._register_span(original)
+            target_span = self._register_span(refined)
+            if source_span and target_span:
+                registration = original[source_span[0]:source_span[1]]
+                if refined[target_span[0]:target_span[1]] != registration:
+                    refined = refined[:target_span[0]] + registration + refined[target_span[1]:]
+                    if 'thttp "trpc.group/trpc-go/trpc-go/http"' not in refined:
+                        if "import (" in refined:
+                            refined = refined.replace("import (", 'import (\n\tthttp "trpc.group/trpc-go/trpc-go/http"', 1)
+                        else:
+                            refined = re.sub(r"(package\s+\w+)", r'\1\nimport thttp "trpc.group/trpc-go/trpc-go/http"', refined, count=1)
+                    files[path] = refined
+                    preserved = True
         if not files:
             raise MainAgentError("The model did not return any refined files.")
         notes = [note.strip() for note in parsed.summary if note and note.strip()]
         if not notes:
             notes = ["Rendered scaffold was passed through the main LLM agent for code refinement."]
+        if preserved:
+            notes.append("Preserved the deterministic HTTP server lifecycle and framework route registrations.")
         return RefinementResult(files=files, notes=notes, model=model_name)
+
+    @staticmethod
+    def _register_span(source: str) -> tuple[int, int] | None:
+        masked = re.sub(r'//[^\n]*|/\*[\s\S]*?\*/|"(?:\\.|[^"\\])*"|`[^`]*`|\'(?:\\.|[^\'\\])*\'',
+                        lambda match: " " * len(match.group()), source)
+        match = re.search(r"func \([^)]*\*HTTPHandler\) Register\(\)\s*\{", masked)
+        if not match:
+            return None
+        depth = 1
+        for index in range(match.end(), len(source)):
+            if masked[index] == "{":
+                depth += 1
+            elif masked[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    return match.start(), index + 1
+        return None
 
     def _invoke_structured(
         self,

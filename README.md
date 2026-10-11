@@ -163,6 +163,127 @@ nl2service/runtime/     durable checkpoints and CI monitoring
 examples/               verified tRPC-Go integration references
 ```
 
+## Evaluation harness
+
+The frozen v2 benchmark contains eight tasks: six development tasks and two acceptance tasks.
+It retains HTTP generation and clarification coverage, and adds input boundaries, checkpoint
+resume with a requirement update, a declared compiler fault, business rules and invalid protocol
+rejection. The manifest pins the dataset digest, model snapshot and three repeats.
+
+Run both profiles and compare their complete reports:
+
+```powershell
+.venv/Scripts/python.exe -m nl2service.evaluation --live --profile full --repeats 3 --report evaluation-report-v2-full.json --artifacts evaluation-artifacts-full
+.venv/Scripts/python.exe -m nl2service.evaluation --live --profile simplified --repeats 3 --report evaluation-report-v2-simplified.json --artifacts evaluation-artifacts-simplified
+.venv/Scripts/python.exe -m nl2service.evaluation.compare --full evaluation-report-v2-full.json --simplified evaluation-report-v2-simplified.json --output evaluation-comparison.json
+```
+
+Both profiles use the real production LangGraph, isolated SQLite checkpoints, the same model,
+scaffold, scripted answers, schema clarification and deterministic repairs. The simplified profile
+removes ambiguity-model calls, example retrieval and model-driven compiler repair. This is a
+combined ablation; it does not isolate the contribution of each component. GitHub operations
+are blocked and delivery approval is declined. No push or deployment is performed.
+
+Generated projects run real Go tidy/vet/test/build checks. Final black-box scoring starts the
+complete generated service on a loopback port and sends HTTP requests. Scoring assertions and
+behavior failures are never fed into generation or repair. Acceptance results must not be used
+to tune generation within this benchmark version. Missing scripted answers fail closed and are
+reported explicitly; they limit conclusions about the affected task.
+
+Reports include task success, first/final compile success, HTTP assertion success and coverage,
+synthetic-fault recovery, clarification and repair counts, checkpoint restarts, latency and actual
+model/token usage, grouped by task and development/acceptance split. Unreached assertions count
+as failures in the all-requested-case rate. Protocol-only control tasks are excluded from the
+build denominator. Partial reports are saved after every trial; comparison requires complete,
+matching reports. Model credentials are needed only for live runs. Latency from concurrent
+profiles on one machine is descriptive and cannot establish an isolated speed improvement.
+
+The original three-task replay fixture remains available for compile-only CI regression:
+
+```powershell
+.venv/Scripts/python.exe -m nl2service.evaluation --dataset nl2service/evaluation/tasks-v1.jsonl --skip-behavior --report evaluation-report.json
+.venv/Scripts/python.exe -m pytest -q
+```
+
+Replay validates orchestration and scaffolding with known structured outputs; it is not an
+LLM capability baseline. These small fixed benchmarks do not estimate production success rates.
+Token counts are measured; no dollar cost is inferred. The CLI exits nonzero for failed trials.
+
+Workflow metrics separate trigger coverage, repair entry, compile recovery and post-repair
+behavior success. Synthetic and naturally occurring compile failures have separate denominators.
+Clarification, requirement-update and checkpoint tasks retain their final task-success rates.
+Protocol rejection is measured both across planned tasks and conditional on actually reaching
+the protocol interrupt; missing fixture answers remain strict failures and are reported as
+evaluation blocks. No failures means repair effectiveness is unavailable, not 100 percent.
+Build attempts retain diagnostics and exit codes, and results include repair-history changes.
+Regression tests cover successful repair with diagnostic feedback, unchanged repair output,
+bounded retry exhaustion, behavior-only failure, clarification resume, corrected requirements,
+checkpoint recreation, invalid protocol rejection, and blocked external delivery.
+Controlled replay tests validate workflow mechanics; live results provide model evidence.
+
+### LLM-as-a-Judge
+
+```powershell
+.venv/Scripts/python.exe -m nl2service.evaluation.judge --controls --repeats 2 --report judge-controls.json
+.venv/Scripts/python.exe -m nl2service.evaluation.judge --source-report evaluation-report-v2-full.json --artifacts evaluation-artifacts-full --generation-repeat 1 --repeats 2 --report judge-full.json
+```
+
+The independent judge defaults to `gpt-4.1-2025-04-14`, distinct from the generation model.
+It grades semantic planning on anchored 0-4 rubrics: requirement alignment, clarification
+quality and specification consistency. Scores of at least 3 satisfy a dimension. The judge
+sees only the request, dialogue (including later corrections) and actual saved specification.
+Profile labels, model identities, executable test scores and expected HTTP assertions are hidden.
+Judge feedback never enters generation or repair; executable correctness remains separately tested.
+
+Evidence references resolve to numbered immutable excerpts; invented IDs are rejected.
+Structured output validates score bounds and evidence requirements. Missing specifications
+require abstention, not an automatic zero or pass. Repeated judgments report exact-score and
+pass/fail consistency. Reports preserve input/rubric hashes, usage, invalid judgments and
+partial progress. A review CSV has blank human-score columns for later independent annotation.
+
+Five synthetic sanity cases cover aligned/contradictory specifications, redundant clarification,
+missing evidence and an instruction-injection attempt. These check evaluator mechanics and
+obvious rubric distinctions; they are not expert-human calibration. Repeat agreement does not
+establish judge accuracy. No human-alignment claim is made without independently collected labels.
+An offline judge can still be lenient, biased or wrong; inspect its evidence and keep the
+deterministic build/HTTP/CI metrics alongside semantic scores.
+
+### CI/CD evaluation
+
+```powershell
+.venv/Scripts/python.exe -m nl2service.evaluation.cicd --report evaluation-report-cicd.json
+```
+
+Nine isolated scenarios drive the real delivery graph from a locally verified project:
+CI success, wait/resume, failure/repair/recommit/success, repeated failure termination,
+30-check timeout, API denial, deploy-job success, deployment failure and skipped-deploy
+rejection. GitHub commits/runs are in-memory fixtures and the repair response is controlled.
+Local Go verification is real; this suite does not run remote Actions, Docker or a cluster.
+Reports preserve traces, polling counts, checkpoint restarts, commit identities and repair
+diagnostics. Passing a negative scenario means correctly detecting/stopping its failure.
+
+Monitoring requires the exact delivered commit SHA. Cancelled, skipped, neutral or timed-out
+runs do not enter code repair. Deployment success requires a successful deploy job; explicit
+cloud authorization failures stop for external access changes. Each external resume performs
+one poll and persists state before the next interrupt. Deploy-job success alone is not proof
+of service endpoint health; container builds, remote runs and health checks need separate evidence.
+Remote evaluations must use an explicit test repository and an isolated branch with a CI-only
+workflow. The regular baseline never pushes, publishes images or deploys.
+
+An explicitly authorized remote fault/repair experiment can be run with a repository-scoped
+`GITHUB_TOKEN` (Contents and Workflows write, Actions read) and `OPENAI_API_KEY`:
+
+```powershell
+.venv/Scripts/python.exe -m nl2service.evaluation.remote_ci --execute --repository owner/test-repo --branch evaluation/cicd-unique-name --report evaluation-report-remote-ci.json
+```
+
+This opt-in command creates a fresh remote branch, replaces its single workflow with the fixed
+CI-only evaluation workflow, injects a compiler error, reads real Actions diagnostics, invokes
+production repair and local verification, and submits a repaired commit to that branch.
+It evaluates remote build/test and container build; it never publishes an image or deploys.
+It refuses extra/modified workflows, existing evaluation branches and unisolated branch names.
+Interrupted or permission-blocked runs preserve partial reports and must not be called successes.
+
 ## Next version
 
 The current milestone proves the complete path from conversation to a deployed service. A
