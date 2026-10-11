@@ -86,6 +86,7 @@ class ConversationalServiceWorkflow:
             {
                 "repair_build_errors": "repair",
                 "prepare_delivery_report": "prepare_delivery_report",
+                "await": "await_github_actions",
                 "end": END,
             },
         )
@@ -359,36 +360,33 @@ class ConversationalServiceWorkflow:
         return "end"
 
     def _await_github_actions_node(self, state: WorkflowState) -> WorkflowState:
-        while True:
-            delivery = dict(state.get("github_delivery", {}))
-            signal = interrupt(
-                {
-                    "kind": "external_wait",
-                    "source": "github_actions",
-                    "question": "GitHub Actions is running. I will continue when the run completes.",
-                    "github_delivery": delivery,
-                    "owner": delivery.get("owner"),
-                    "repo": delivery.get("repo"),
-                    "commit_sha": delivery.get("commit_sha"),
+        delivery = dict(state.get("github_delivery", {}))
+        signal = interrupt(
+            {
+                "kind": "external_wait",
+                "source": "github_actions",
+                "question": "GitHub Actions is running. I will continue when the run completes.",
+                "github_delivery": delivery,
+                "owner": delivery.get("owner"),
+                "repo": delivery.get("repo"),
+                "commit_sha": delivery.get("commit_sha"),
+            }
+        )
+        is_poll = signal in ("poll", True) or (
+            isinstance(signal, dict) and signal.get("type") == "poll"
+        )
+        if not is_poll:
+            state["status"] = "awaiting_github_actions"
+            return state
+        if isinstance(signal, dict):
+            persisted_delivery = signal.get("github_delivery")
+            if isinstance(persisted_delivery, dict):
+                state["github_delivery"] = dict(persisted_delivery)
+            else:
+                state["github_delivery"] = {
+                    **delivery,
+                    "owner": signal.get("owner") or delivery.get("owner"),
+                    "repo": signal.get("repo") or delivery.get("repo"),
+                    "commit_sha": signal.get("commit_sha") or delivery.get("commit_sha"),
                 }
-            )
-            is_poll = signal in ("poll", True) or (
-                isinstance(signal, dict) and signal.get("type") == "poll"
-            )
-            if not is_poll:
-                state["status"] = "awaiting_github_actions"
-                return state
-            if isinstance(signal, dict):
-                persisted_delivery = signal.get("github_delivery")
-                if isinstance(persisted_delivery, dict):
-                    state["github_delivery"] = dict(persisted_delivery)
-                else:
-                    state["github_delivery"] = {
-                        **delivery,
-                        "owner": signal.get("owner") or delivery.get("owner"),
-                        "repo": signal.get("repo") or delivery.get("repo"),
-                        "commit_sha": signal.get("commit_sha") or delivery.get("commit_sha"),
-                    }
-            state = self.core.github_actions.monitor(state)
-            if state.get("status") != "awaiting_github_actions":
-                return state
+        return self.core.github_actions.monitor(state)

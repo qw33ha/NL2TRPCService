@@ -221,6 +221,28 @@ bounded retry exhaustion, behavior-only failure, clarification resume, corrected
 checkpoint recreation, invalid protocol rejection, and blocked external delivery.
 Controlled replay tests validate workflow mechanics; live results provide model evidence.
 
+### CI/CD evaluation
+
+```powershell
+.venv/Scripts/python.exe -m nl2service.evaluation.cicd --report evaluation-report-cicd.json
+```
+
+Nine isolated scenarios drive the real delivery graph from a locally verified project:
+CI success, wait/resume, failure/repair/recommit/success, repeated failure termination,
+30-check timeout, API denial, deploy-job success, deployment failure and skipped-deploy
+rejection. GitHub commits/runs are in-memory fixtures and the repair response is controlled.
+Local Go verification is real; this suite does not run remote Actions, Docker or a cluster.
+Reports preserve traces, polling counts, checkpoint restarts, commit identities and repair
+diagnostics. Passing a negative scenario means correctly detecting/stopping its failure.
+
+Monitoring requires the exact delivered commit SHA. Cancelled, skipped, neutral or timed-out
+runs do not enter code repair. Deployment success requires a successful deploy job; explicit
+cloud authorization failures stop for external access changes. Each external resume performs
+one poll and persists state before the next interrupt. Deploy-job success alone is not proof
+of service endpoint health; container builds, remote runs and health checks need separate evidence.
+Remote evaluations must use an explicit test repository and an isolated branch with a CI-only
+workflow. The regular baseline never pushes, publishes images or deploys.
+
 ## Next version
 
 The current milestone proves the complete path from conversation to a deployed service. A
