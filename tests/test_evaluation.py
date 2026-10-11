@@ -57,15 +57,15 @@ def test_build_failure_is_reported_and_bounded(monkeypatch):
     assert "repair" in [item["node"] for item in result["trace"]]
 
 
-def test_runtime_failure_is_sent_to_production_repair(monkeypatch):
+def test_scoring_assertions_are_not_sent_to_repair(monkeypatch):
     from nl2service.evaluation.runner import EvaluationVerifier
     monkeypatch.setattr("nl2service.build.verify.GoBuildVerifier.verify", lambda self, files: BuildVerificationResult(success=True))
-    monkeypatch.setattr("nl2service.evaluation.runner.run_behavior", lambda root, cases: {
-        "status": "failed", "cases": [{"id": "health", "passed": False, "actual_status": 404}]})
-    verifier = EvaluationVerifier([{"id": "health"}])
+    def forbidden(*args):
+        raise AssertionError("Scoring must not run inside build/repair")
+    monkeypatch.setattr("nl2service.evaluation.runner.run_behavior", forbidden)
+    verifier = EvaluationVerifier()
     result = verifier.verify({"handler.go": 'package handler\n// http.HandleFunc("/health", h.Health)\n'})
-    assert not result.success
-    assert result.command == "evaluation HTTP behavior"
-    assert "standard library mux" in result.feedback
+    assert result.success
+    assert "standard library mux" not in result.feedback
     assert verifier.builds[0]["status"] == "passed"
-    assert verifier.behaviors[0]["status"] == "failed"
+    assert verifier.behaviors == []

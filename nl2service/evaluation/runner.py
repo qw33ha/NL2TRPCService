@@ -10,6 +10,7 @@ from importlib.metadata import version
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 from tempfile import TemporaryDirectory
 
 from langgraph.types import Command
@@ -35,6 +36,32 @@ class Task(BaseModel):
     required_files: list[str] = Field(default_factory=lambda: ["main.go", "go.mod"])
     behavior_cases: list[dict] = Field(default_factory=list)
     clarification_answers: dict[str, str] = Field(default_factory=dict)
+    split: Literal["development", "acceptance"] = "development"
+    category: str = "http_generation"
+    approval_responses: list[dict] = Field(default_factory=list)
+    recreate_on_resume: bool = False
+    fault: Literal["undefined_symbol"] | None = None
+    invalid_proto: str | None = None
+
+
+class SimplifiedCore(WorkflowCore):
+    """Same model/scaffold/graph, without ambiguity LLM, examples or LLM repair."""
+
+    def _select_examples_node(self, state):
+        state.update(selected_examples=[], example_reference_files={}, status="examples_selected")
+        return state
+
+    def _verify_build_node(self, state):
+        state = super()._verify_build_node(state)
+        if state.get("status") == "build_verification_failed":
+            state.update(status="error", error="Simplified profile stops after compiler failure; LLM repair is disabled.")
+        return state
+
+
+class NoAmbiguity:
+    def analyze(self, *args):
+        from nl2service.agent.ambiguity import AmbiguityReview
+        return AmbiguityReview()
 
 
 class BlockedDelivery:
@@ -134,36 +161,26 @@ class MeasuredProvider(LLMProvider):
 
 
 class EvaluationVerifier:
-    """Feed executable behavior failures through the production repair loop."""
-    def __init__(self, cases):
-        self.cases = cases
+    """Record compiler results; final scoring assertions are never repair feedback."""
+    def __init__(self, fault=None):
+        self.fault = fault
+        self.fault_injected = False
         self.builds = []
         self.behaviors = []
 
     def verify(self, files):
+        if self.fault and not self.fault_injected:
+            files = {**files, "handler/evaluation_fault.go": "package handler\nvar evaluationFault = missingEvaluationSymbol\n"}
+            self.fault_injected = True
         result = GoBuildVerifier().verify(files)
         self.builds.append({"status": "passed" if result.success else "failed", "command": result.command})
-        if not result.success:
-            return result
-        with TemporaryDirectory(prefix="nl2service-behavior-") as directory:
-            root = Path(directory)
-            from nl2service.render.renderer import ServiceRenderer
-            ServiceRenderer().write_tree(result.synchronized_files or files, root)
-            behavior = run_behavior(root, self.cases)
-        self.behaviors.append(behavior)
-        if behavior["status"] == "failed":
-            diagnostic = ""
-            if any("http.HandleFunc(" in content and "thttp.HandleFunc(" not in content for path, content in files.items() if path.endswith(".go")):
-                diagnostic = ("\nRouter diagnosis: net/http.HandleFunc registers on the standard library mux, which the tRPC-Go http_no_protocol server does not use. "
-                              "Register each path with thttp.HandleFunc(path, h.Method), where thttp imports trpc.group/trpc-go/trpc-go/http "
-                              "and h.Method has signature func(http.ResponseWriter, *http.Request) error. Remove the standard-library wrapper/router registration.\n")
-            return BuildVerificationResult(success=False, command="evaluation HTTP behavior", exit_code=1,
-                feedback="The complete generated server failed executable HTTP evaluation. Repair the implementation, preserve the tRPC-Go configured server entrypoint, and satisfy these fixed assertions:\n" + json.dumps(behavior) + diagnostic,
-                synchronized_files=result.synchronized_files)
+        if self.fault_injected and not result.synchronized_files:
+            result.synchronized_files = files
         return result
 
 
-def run_task(task: Task, *, live: bool = False, execute_behavior: bool = False, artifacts: Path | None = None) -> dict:
+def run_task(task: Task, *, live: bool = False, execute_behavior: bool = False, artifacts: Path | None = None,
+             profile: str = "full", model: str | None = None) -> dict:
     started = time.monotonic()
     trace = []
     interrupts = []
@@ -174,15 +191,22 @@ def run_task(task: Task, *, live: bool = False, execute_behavior: bool = False, 
     behavior = {"status": "not_run", "cases": []}
     with TemporaryDirectory(prefix="nl2service-eval-") as directory:
         root = Path(directory)
-        core = WorkflowCore(provider=MeasuredProvider(tracker) if live else ReplayProvider(task.spec), github_provider=BlockedDelivery())
-        evaluator = EvaluationVerifier(task.behavior_cases) if execute_behavior and task.behavior_cases else None
-        if evaluator:
-            core.verifier = evaluator
+        core_type = WorkflowCore if profile == "full" else SimplifiedCore
+        core = core_type(model=model, provider=MeasuredProvider(tracker) if live else ReplayProvider(task.spec), github_provider=BlockedDelivery())
+        if profile == "simplified":
+            core.ambiguity_analyzer = NoAmbiguity()
+        evaluator = EvaluationVerifier(task.fault)
+        core.verifier = evaluator
         with SQLiteCheckpointRuntime(root / "checkpoint.db") as runtime:
             graph = ConversationalServiceWorkflow(core, runtime.checkpointer).graph
             config = {"configurable": {"thread_id": str(uuid.uuid4())}, "recursion_limit": 80}
-            payload = {"user_request": task.request, "output_dir": str(root / "project"), "github_delivery": {}}
+            payload = {"user_request": task.request, "output_dir": str(root / "project"), "github_delivery": {}, "model": model}
             responses = iter(task.responses)
+            approval_responses = iter(task.approval_responses)
+            protocol_rejected = False
+            proto_supplied = False
+            checkpoint_restarts = 0
+            dialogue = []
             try:
                 for _ in range(20):
                     for update in graph.stream(payload, config, stream_mode="updates"):
@@ -198,10 +222,20 @@ def run_task(task: Task, *, live: bool = False, execute_behavior: bool = False, 
                         break
                     kind = pending[0].value.get("kind")
                     interrupts.append(kind)
+                    if kind == "proto" and task.invalid_proto and proto_supplied:
+                        # A second protocol interrupt proves the supplied invalid
+                        # contract was refused before rendering or delivery.
+                        protocol_rejected = True
+                        break
                     if kind == "github_approval":
                         response = {"confirmed": False}
                     elif kind == "approval":
-                        response = {"confirmed": True}
+                        response = next(approval_responses, {"confirmed": True})
+                    elif kind == "proto" and task.invalid_proto:
+                        invalid_path = root / "invalid.proto"
+                        invalid_path.write_text(task.invalid_proto, encoding="utf-8")
+                        response = {"path": str(invalid_path)}
+                        proto_supplied = True
                     elif kind in {"clarification", "proto"}:
                         field = pending[0].value.get("field")
                         if field in task.clarification_answers:
@@ -217,6 +251,10 @@ def run_task(task: Task, *, live: bool = False, execute_behavior: bool = False, 
                     else:
                         raise RuntimeError(f"Forbidden evaluation interrupt: {kind}")
                     payload = Command(resume=response)
+                    dialogue.append({"interrupt": pending[0].value, "response": response})
+                    if task.recreate_on_resume:
+                        graph = ConversationalServiceWorkflow(core, runtime.checkpointer).graph
+                        checkpoint_restarts += 1
                 else:
                     raise RuntimeError("Evaluation exceeded interrupt budget")
             except Exception as exc:
@@ -224,8 +262,9 @@ def run_task(task: Task, *, live: bool = False, execute_behavior: bool = False, 
                 result = graph.get_state(config).values
             if evaluator:
                 builds = evaluator.builds
-                if evaluator.behaviors:
-                    behavior = evaluator.behaviors[-1]
+            if execute_behavior and task.behavior_cases and builds and builds[-1].get("status") == "passed":
+                behavior = run_behavior(root / "project", task.behavior_cases)
+                evaluator.behaviors.append(behavior)
             if artifacts:
                 from nl2service.render.paths import safe_destination
                 destination = safe_destination(artifacts, task.id)
@@ -235,11 +274,17 @@ def run_task(task: Task, *, live: bool = False, execute_behavior: bool = False, 
                     (destination / "evaluation-spec.json").write_text(spec.model_dump_json(indent=2), encoding="utf-8")
     files = result.get("rendered_files", {})
     checks = {
-        "expected_status": result.get("status") == task.expected_status,
+        "expected_status": ("awaiting_valid_proto" if protocol_rejected else result.get("status")) == task.expected_status,
         "required_files": all(path in files for path in task.required_files),
         "no_delivery": not result.get("github_delivery") and not any(item["node"] == "deliver_to_github" for item in trace),
         "no_error": not error and not result.get("error"),
     }
+    if task.invalid_proto:
+        checks["invalid_proto_rejected"] = protocol_rejected and not files and not any(step["node"] == "render_project" for step in trace)
+    if task.recreate_on_resume:
+        checks["checkpoint_restart"] = checkpoint_restarts > 0
+    if task.fault:
+        checks["fault_injected"] = evaluator.fault_injected
     if execute_behavior and task.behavior_cases:
         checks["behavior"] = behavior["status"] == "passed"
     failure_stage = None
@@ -252,12 +297,14 @@ def run_task(task: Task, *, live: bool = False, execute_behavior: bool = False, 
             failure_stage = "build"
         else:
             failure_stage = "workflow"
-    return {"id": task.id, "mode": "live" if live else "replay", "passed": all(checks.values()), "checks": checks,
+    return {"id": task.id, "mode": "live" if live else "replay", "profile": profile, "split": task.split, "category": task.category,
+            "passed": all(checks.values()), "checks": checks,
             "status": result.get("status"), "error": error or result.get("error"), "seconds": round(time.monotonic() - started, 3),
             "trace": trace, "interrupts": interrupts, "local_build": result.get("local_build"), "files": sorted(files),
             "build_attempts": builds, "behavior": behavior, "model_calls": tracker.calls,
             "behavior_attempts": evaluator.behaviors if evaluator else [], "behavior_case_count": len(task.behavior_cases),
-            "failure_stage": failure_stage}
+            "failure_stage": failure_stage, "fault_injected": evaluator.fault_injected, "build_required": not bool(task.invalid_proto),
+            "checkpoint_restarts": checkpoint_restarts, "dialogue": dialogue}
 
 
 def main():
@@ -268,6 +315,9 @@ def main():
     parser.add_argument("--artifacts", type=Path, help="Retain generated source for review")
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--skip-behavior", action="store_true", help="Report compile-only results")
+    parser.add_argument("--profile", choices=["full", "simplified"], default="full")
+    parser.add_argument("--split", choices=["all", "development", "acceptance"], default="all")
+    parser.add_argument("--model", default="gpt-4.1-mini-2025-04-14")
     args = parser.parse_args()
     if args.repeats < 1:
         parser.error("--repeats must be at least 1")
@@ -280,28 +330,44 @@ def main():
             digest.update(path.read_bytes())
     source_sha256 = digest.hexdigest()
     tasks = load_tasks(args.dataset)
+    manifest_path = args.dataset.with_name("benchmark-manifest.json")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else None
+    if manifest and args.dataset.name != manifest.get("dataset", "tasks.jsonl"):
+        manifest = None
+    if manifest and manifest["dataset_sha256"] != hashlib.sha256(dataset_bytes).hexdigest():
+        parser.error("Frozen dataset does not match its manifest")
+    if args.split != "all":
+        tasks = [task for task in tasks if task.split == args.split]
     results = []
+    revision = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    metadata = {"revision": revision, "python": platform.python_version(), "mode": "live" if args.live else "replay",
+                "profile": args.profile, "split": args.split, "model": args.model, "behavior_enabled": not args.skip_behavior,
+                "scoring_feedback_to_model": False, "benchmark_version": manifest["version"] if manifest else None,
+                "dataset_sha256": hashlib.sha256(dataset_bytes).hexdigest(), "repeats": args.repeats,
+                "source_sha256": source_sha256,
+                "working_tree_dirty": bool(subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True).stdout.strip()),
+                "dependencies": {name: version(name) for name in ("langgraph", "langchain-openai", "pydantic")},
+                "go": subprocess.run(["go", "version"], capture_output=True, text=True).stdout.strip()}
+    def save_report(complete):
+        report = {"schema_version": 3, "complete": complete, "planned_total": len(tasks) * args.repeats,
+                  "passed": sum(item["passed"] for item in results), "total": len(results), "results": results,
+                  "metrics": summarize(results), "metadata": {**metadata, "timestamp_utc": datetime.now(timezone.utc).isoformat()}}
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        args.report.with_suffix(".txt").write_text(format_summary(report), encoding="utf-8")
+        return report
     for repeat in range(args.repeats):
         for task in tasks:
             print(f"Running {task.id} (repeat {repeat + 1})", flush=True)
             result = run_task(task, live=args.live, execute_behavior=not args.skip_behavior,
-                              artifacts=args.artifacts / f"run-{repeat + 1}" if args.artifacts else None)
+                              artifacts=args.artifacts / f"run-{repeat + 1}" if args.artifacts else None,
+                              profile=args.profile, model=args.model)
             result["repeat"] = repeat + 1
             results.append(result)
+            save_report(False)
             print(f"  passed={result['passed']}; status={result['status']}; behavior={result['behavior']['status']}", flush=True)
             if result["error"]:
                 print(f"  error={result['error']}", flush=True)
-    revision = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    report = {"schema_version": 2, "passed": sum(item["passed"] for item in results), "total": len(results), "results": results,
-              "metrics": summarize(results), "metadata": {"timestamp_utc": datetime.now(timezone.utc).isoformat(),
-              "revision": revision, "working_tree_dirty": bool(subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True).stdout.strip()),
-              "python": platform.python_version(), "mode": "live" if args.live else "replay",
-              "dataset_sha256": hashlib.sha256(dataset_bytes).hexdigest(), "repeats": args.repeats,
-              "source_sha256": source_sha256,
-              "dependencies": {name: version(name) for name in ("langgraph", "langchain-openai", "pydantic")},
-              "go": subprocess.run(["go", "version"], capture_output=True, text=True).stdout.strip()}}
-    args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    args.report.with_suffix(".txt").write_text(format_summary(report), encoding="utf-8")
+    report = save_report(True)
     print(f"{report['passed']}/{report['total']} passed; report: {args.report}")
     raise SystemExit(0 if results and all(item["passed"] for item in results) else 1)

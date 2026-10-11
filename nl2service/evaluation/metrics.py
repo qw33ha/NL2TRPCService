@@ -8,7 +8,7 @@ def rate(passed, total):
     return {"passed": passed, "total": total, "rate": passed / total if total else None}
 
 
-def summarize(results):
+def summarize(results, grouped=True):
     durations = sorted(item["seconds"] for item in results)
     builds = [item for item in results if item.get("build_attempts")]
     behaviors = [case for item in results for case in item.get("behavior", {}).get("cases", [])]
@@ -18,16 +18,23 @@ def summarize(results):
     requested_cases = sum(item.get("behavior_case_count", len(item.get("behavior", {}).get("cases", []))) for item in results)
     first_behavior = [item["behavior_attempts"][0] for item in results if item.get("behavior_attempts")]
     recoverable = [item for item in results if item.get("behavior_attempts") and item["behavior_attempts"][0]["status"] == "failed"]
+    build_required = [item for item in results if item.get("build_required", True)]
+    behavior_required = [item for item in results if item.get("behavior_case_count", 1) > 0]
+    failed_first_build = [item for item in builds if item["build_attempts"][0].get("status") == "failed"]
+    injected = [item for item in results if item.get("fault_injected")]
     metrics = {
         "task_success": rate(sum(item["passed"] for item in results), len(results)),
-        "build_success_all_tasks": rate(sum(item["build_attempts"][-1].get("status") == "passed" for item in builds), len(results)),
+        "build_success_all_tasks": rate(sum(item["build_attempts"][-1].get("status") == "passed" for item in builds), len(build_required)),
         "build_success_attempted_tasks": rate(sum(item["build_attempts"][-1].get("status") == "passed" for item in builds), len(builds)),
         "first_build_success": rate(sum(item["build_attempts"][0].get("status") == "passed" for item in first), len(first)),
         "behavior_success": rate(sum(case["passed"] for case in behaviors), len(behaviors)),
         "behavior_success_all_requested_cases": rate(sum(case["passed"] for case in behaviors), requested_cases),
         "first_behavior_task_success": rate(sum(item["status"] == "passed" for item in first_behavior), len(first_behavior)),
         "behavior_repair_recovery": rate(sum(item.get("behavior", {}).get("status") == "passed" for item in recoverable), len(recoverable)),
-        "behavior_task_coverage": rate(sum(bool(item.get("behavior", {}).get("cases")) for item in results), len(results)),
+        "build_repair_recovery": rate(sum(item["build_attempts"][-1].get("status") == "passed" for item in failed_first_build), len(failed_first_build)),
+        "injected_compile_recovery": rate(sum(bool(item.get("build_attempts")) and item["build_attempts"][-1].get("status") == "passed" for item in injected), len(injected)),
+        "behavior_task_coverage": rate(sum(bool(item.get("behavior", {}).get("cases")) for item in results), len(behavior_required)),
+        "checkpoint_restarts": sum(item.get("checkpoint_restarts", 0) for item in results),
         "repair_node_calls": sum(sum(step["node"] == "repair" for step in item["trace"]) for item in results),
         "clarification_count": sum(item["interrupts"].count("clarification") for item in results),
         "deterministic_repairs": sum(sum(step.get("status") == "deterministic_repair_applied" for step in item["trace"]) for item in results),
@@ -46,16 +53,20 @@ def summarize(results):
                   "mean_seconds": statistics.mean(item["seconds"] for item in results if item["id"] == task_id)}
         for task_id in sorted({item.get("id", "unknown") for item in results})
     } if all("id" in item for item in results) else {}
+    if grouped:
+        for field in ("split", "category"):
+            metrics["by_" + field] = {key: summarize([item for item in results if item.get(field) == key], grouped=False)
+                                     for key in sorted({item[field] for item in results if field in item})}
     return metrics
 
 
 def format_summary(report):
     metrics = report["metrics"]
-    lines = ["NL2Service evaluation metrics", f"Mode: {report['metadata']['mode']}",
+    lines = ["NL2Service evaluation metrics", f"Mode: {report['metadata']['mode']}; profile: {report['metadata'].get('profile', 'full')}",
              f"Dataset SHA256: {report['metadata']['dataset_sha256']}",
              f"Repeated runs: {report['total']}; unique tasks: {len(metrics['by_task'])}"]
     for name in ("task_success", "build_success_all_tasks", "build_success_attempted_tasks", "first_build_success",
-                 "behavior_success", "behavior_success_all_requested_cases", "behavior_task_coverage", "behavior_repair_recovery"):
+                 "behavior_success", "behavior_success_all_requested_cases", "behavior_task_coverage", "build_repair_recovery", "injected_compile_recovery"):
         value = metrics[name]
         percentage = f"{value['rate']:.1%}" if value["rate"] is not None else "unavailable"
         lines.append(f"{name}: {value['passed']}/{value['total']} ({percentage})")
@@ -63,6 +74,6 @@ def format_summary(report):
                   f"Clarifications: {metrics['clarification_count']}; repair node calls: {metrics['repair_node_calls']}; deterministic repairs: {metrics['deterministic_repairs']}",
                   f"Model calls: {metrics['model_calls']}; token usage: {metrics['token_usage']}",
                   f"Failure stages: {metrics['failure_stages']}",
-                  "Scope: three-task regression benchmark. Repeated runs are not independent production requests.",
+                  "Scope: fixed offline benchmark. Repeated runs are not independent production requests. Development and acceptance are reported separately.",
                   "No USD cost estimate. Missing measurements are unavailable, not zero."])
     return "\n".join(lines) + "\n"

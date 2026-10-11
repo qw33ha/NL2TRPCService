@@ -90,6 +90,12 @@ def run_behavior(root: Path, cases: list[dict]) -> dict:
                             checks["body"] = json.loads(raw) == case["json"]
                         except ValueError:
                             checks["body"] = False
+                    if case.get("json_error"):
+                        try:
+                            decoded = json.loads(raw)
+                            checks["error_schema"] = isinstance(decoded, dict) and set(decoded) == {"error"} and isinstance(decoded["error"], str)
+                        except ValueError:
+                            checks["error_schema"] = False
                     outcomes.append({"id": case["id"], "passed": all(checks.values()), "checks": checks,
                                      "actual_status": status, "response_excerpt": raw[:300].decode(errors="replace")})
                 except Exception as exc:

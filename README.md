@@ -165,34 +165,49 @@ examples/               verified tRPC-Go integration references
 
 ## Evaluation harness
 
-Run the production LangGraph with isolated SQLite checkpoints, temporary generated projects,
-real Go tidy/vet/test/build commands, and black-box HTTP tests of the complete generated binary:
+The frozen v2 benchmark contains eight tasks: six development tasks and two acceptance tasks.
+It retains HTTP generation and clarification coverage, and adds input boundaries, checkpoint
+resume with a requirement update, a declared compiler fault, business rules and invalid protocol
+rejection. The manifest pins the dataset digest, model snapshot and three repeats.
+
+Run both profiles and compare their complete reports:
 
 ```powershell
-.venv/Scripts/python.exe -m nl2service.evaluation --live --repeats 3 --report evaluation-report-live.json --artifacts evaluation-artifacts
+.venv/Scripts/python.exe -m nl2service.evaluation --live --profile full --repeats 3 --report evaluation-report-v2-full.json --artifacts evaluation-artifacts-full
+.venv/Scripts/python.exe -m nl2service.evaluation --live --profile simplified --repeats 3 --report evaluation-report-v2-simplified.json --artifacts evaluation-artifacts-simplified
+.venv/Scripts/python.exe -m nl2service.evaluation.compare --full evaluation-report-v2-full.json --simplified evaluation-report-v2-simplified.json --output evaluation-comparison.json
 ```
 
-The bundled JSONL tasks cover HTTP generation, multiple endpoints, and clarification/resume.
-Replay mode uses known structured model outputs and measures orchestration and scaffold
-regressions, not natural-language understanding or business-logic accuracy. The replay scaffold
-does not implement the task's JSON business behavior, so it is an intentionally incomplete baseline
-for the black-box checks. `--skip-behavior` runs the compile-only replay regression used in CI.
-Replay also injects a handler smoke test; custom replay tasks must include a Health handler.
-`--live` uses the configured LLM provider and does not inject the replay smoke test.
-Model credentials are required only for live mode. Scripted clarification answers belong to the
-task fixture and are recorded as clarification turns, not inferred from expected HTTP outputs.
-GitHub operations are blocked in both modes; delivery approval is always declined.
-The HTTP checks use loopback ports and validate health JSON, echo content, invalid JSON,
-unsupported content types, oversized requests and unsupported methods. Runtime failures enter
-the production repair loop; the evaluator never changes assertions to accommodate generated code.
-Reports include first/final compile success, task success, behavior case success and coverage,
-repair/clarification counts, mean/median/p95 latency, actual model token usage, per-task repeat
-results, command logs and environment/dataset provenance. Rates include numerators and
-denominators; unattempted tasks are failures in all-task rates, and unavailable measurements
-are null. This three-task dataset is a regression benchmark, not a representative production
-success-rate estimate. No USD cost is inferred from token counts.
-The CLI returns nonzero for any failed task. Run `python -m pytest -q` separately for
-the complete Python regression suite. Retained artifacts are local and must be reviewed before use.
+Both profiles use the real production LangGraph, isolated SQLite checkpoints, the same model,
+scaffold, scripted answers, schema clarification and deterministic repairs. The simplified profile
+removes ambiguity-model calls, example retrieval and model-driven compiler repair. This is a
+combined ablation; it does not isolate the contribution of each component. GitHub operations
+are blocked and delivery approval is declined. No push or deployment is performed.
+
+Generated projects run real Go tidy/vet/test/build checks. Final black-box scoring starts the
+complete generated service on a loopback port and sends HTTP requests. Scoring assertions and
+behavior failures are never fed into generation or repair. Acceptance results must not be used
+to tune generation within this benchmark version. Missing scripted answers fail closed and are
+reported explicitly; they limit conclusions about the affected task.
+
+Reports include task success, first/final compile success, HTTP assertion success and coverage,
+synthetic-fault recovery, clarification and repair counts, checkpoint restarts, latency and actual
+model/token usage, grouped by task and development/acceptance split. Unreached assertions count
+as failures in the all-requested-case rate. Protocol-only control tasks are excluded from the
+build denominator. Partial reports are saved after every trial; comparison requires complete,
+matching reports. Model credentials are needed only for live runs. Latency from concurrent
+profiles on one machine is descriptive and cannot establish an isolated speed improvement.
+
+The original three-task replay fixture remains available for compile-only CI regression:
+
+```powershell
+.venv/Scripts/python.exe -m nl2service.evaluation --dataset nl2service/evaluation/tasks-v1.jsonl --skip-behavior --report evaluation-report.json
+.venv/Scripts/python.exe -m pytest -q
+```
+
+Replay validates orchestration and scaffolding with known structured outputs; it is not an
+LLM capability baseline. These small fixed benchmarks do not estimate production success rates.
+Token counts are measured; no dollar cost is inferred. The CLI exits nonzero for failed trials.
 
 ## Next version
 
