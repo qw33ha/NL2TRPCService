@@ -56,11 +56,35 @@ class ServiceConfig(BaseModel):
         return self
 
 
+class InputFieldSpec(BaseModel):
+    name: str = Field(description="JSON input field name explicitly stated by the user.")
+    type: Literal["integer", "number", "string", "boolean", "object", "array"]
+    required: bool | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+    description: str | None = None
+
+
+class BusinessRuleSpec(BaseModel):
+    name: str
+    expression: str = Field(description="User-specified formula or rule; descriptive text, never executed as Python.")
+    operations: list[Literal["add", "subtract", "multiply", "divide", "floor", "conditional", "other"]] = Field(default_factory=list)
+    condition: str | None = None
+
+
 class EndpointSpec(BaseModel):
     path: str
     method: str
     request_description: str | None = None
     response_description: str | None = None
+    input_fields: list[InputFieldSpec] = Field(default_factory=list)
+    business_rules: list[BusinessRuleSpec] = Field(default_factory=list)
+    response_fields: list[str] = Field(default_factory=list)
+    success_status: int | None = Field(default=None, ge=100, le=599)
+    malformed_json_status: int | None = Field(default=None, ge=100, le=599)
+    validation_error_status: int | None = Field(default=None, ge=100, le=599)
+    error_field: str | None = None
+    allow_unknown_fields: bool | None = None
 
     @field_validator("method")
     @classmethod
@@ -75,6 +99,26 @@ class KafkaConfig(BaseModel):
     group: str | None = None
     secret_name: str | None = None
     ca_file: str | None = None
+    tls: bool | None = None
+
+
+class RedisConfig(BaseModel):
+    enabled: bool = False
+    address: str | None = None
+    key_prefix: str | None = None
+
+
+class DatabaseColumnSpec(BaseModel):
+    name: str
+    sql_type: Literal["BIGINT", "INT", "VARCHAR(128)", "VARCHAR(255)", "TEXT"]
+    primary_key: bool = False
+    unique: bool = False
+    nullable: bool = False
+
+
+class DatabaseTableSpec(BaseModel):
+    name: str
+    columns: list[DatabaseColumnSpec] = Field(default_factory=list)
 
 
 class DatabaseConfig(BaseModel):
@@ -85,6 +129,8 @@ class DatabaseConfig(BaseModel):
     database: str | None = None
     table: str | None = None
     secret_name: str | None = None
+    tables: list[DatabaseTableSpec] = Field(default_factory=list)
+    transaction_requirements: list[str] = Field(default_factory=list)
 
 
 class RepoConfig(BaseModel):
@@ -120,6 +166,7 @@ class ServiceSpec(BaseModel):
     service: ServiceConfig = Field(default_factory=ServiceConfig)
     endpoints: list[EndpointSpec] = Field(default_factory=list)
     kafka: KafkaConfig = Field(default_factory=KafkaConfig)
+    redis: RedisConfig = Field(default_factory=RedisConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     repo: RepoConfig = Field(default_factory=RepoConfig)
     deploy: DeployConfig = Field(default_factory=DeployConfig)

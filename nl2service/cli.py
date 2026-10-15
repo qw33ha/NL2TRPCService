@@ -11,6 +11,19 @@ from nl2service.runtime.github_worker import GitHubActionsWorker
 app = typer.Typer(help="Natural-language to service delivery scaffolding.")
 
 
+def _read_message() -> str:
+    message = typer.prompt("You")
+    if message.strip() != "/paste":
+        return message
+    typer.echo("Paste your message. Finish with /end on its own line.")
+    lines = []
+    while True:
+        line = input()
+        if line.strip() == "/end":
+            return "\n".join(lines)
+        lines.append(line)
+
+
 def _print_agent_turn(turn: AgentTurn) -> None:
     for event in turn.events:
         prefix = {
@@ -22,6 +35,9 @@ def _print_agent_turn(turn: AgentTurn) -> None:
             "error": "Error",
         }.get(event.kind, "Agent")
         typer.echo(f"{prefix}: {event.text}")
+        if event.kind == "approval":
+            for line in event.data.get("summary", []):
+                typer.echo(f"  {line}")
         if event.kind == "completed":
             for key in [
                 "repository_url",
@@ -51,8 +67,14 @@ def chat(
     session = AgentSession(model=model, provider=LLMProvider(), database_path=database)
     thread_id = thread or session.new_thread_id()
     typer.echo(f"Conversation: {thread_id}")
-    message = request or typer.prompt("You")
+    typer.echo("For a multiline message, enter /paste first and finish with /end.")
     try:
+        if thread:
+            snapshot = session.workflow.graph.get_state(session._config(thread_id))
+            pending = session._pending_interrupt(snapshot)
+            if pending:
+                _print_agent_turn(AgentTurn(thread_id, [session._event_for_interrupt(pending)], "waiting_for_user", pending.get("kind")))
+        message = request or _read_message()
         while True:
             turn = session.handle_message(thread_id, message)
             _print_agent_turn(turn)
@@ -63,7 +85,7 @@ def chat(
 
             if turn.status in {"complete", "cancelled", "error", "verified"} and not turn.waiting_for:
                 break
-            message = typer.prompt("You")
+            message = _read_message()
     except (KeyboardInterrupt, EOFError):
         typer.echo(f"\nConversation paused. Continue later with: nl2service --thread {thread_id}")
     finally:

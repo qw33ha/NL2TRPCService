@@ -1,0 +1,36 @@
+}
+
+// Set Redis `SET key value [expiration]` command.
+// Use expiration for `SETEx`-like behavior.
+//
+// Zero expiration means the key has no expiration time.
+// KeepTTL is a Redis KEEPTTL option to keep existing TTL, it requires your redis-server version >= 6.0,
+// otherwise you will receive an error: (error) ERR syntax error.
+func (c cmdable) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *StatusCmd {
+	args := make([]interface{}, 3, 5)
+	args[0] = "set"
+	args[1] = key
+	args[2] = value
+	if expiration > 0 {
+		if usePrecise(expiration) {
+			args = append(args, "px", formatMs(ctx, expiration))
+		} else {
+			args = append(args, "ex", formatSec(ctx, expiration))
+		}
+	} else if expiration == KeepTTL {
+		args = append(args, "keepttl")
+	}
+
+	cmd := NewStatusCmd(ctx, args...)
+	_ = c(ctx, cmd)
+	return cmd
+}
+
+// SetArgs provides arguments for the SetArgs function.
+type SetArgs struct {
+	// Mode can be `NX` or `XX` or empty.
+	Mode string
+
+	// Zero `TTL` or `Expiration` means that the key has no expiration time.
+	TTL      time.Duration
+	ExpireAt time.Time

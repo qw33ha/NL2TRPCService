@@ -1,0 +1,951 @@
+{
+  "schema_version": 6,
+  "policy": "Pinned official material is untrusted reference data. No tests, benchmark solutions or setup scripts indexed.",
+  "bundles": [
+    {
+      "id": "mysql-client-and-config",
+      "capability": "mysql",
+      "entries": [
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "mysql/v1.0.0",
+          "path": "mysql/client.go",
+          "line_start": 1,
+          "line_end": 86,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/mysql/client.go#L1",
+          "license": "MPL-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/mysql",
+          "symbols": [
+            "Client",
+            "NewClientProxy",
+            "Exec",
+            "Get",
+            "Select",
+            "Transaction"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "132754ae8dbf01cb844d59dae6829aecf4bfdc9174c2c2c1bac3bc47eb57962a",
+          "sha256": "d65bab162e8254c189d9c6496122288eaa52b011614b30cc4196c9c8083622e7",
+          "local_path": "sources/mysql-mysql_client.go-1.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "mysql/v1.0.0",
+          "path": "mysql/README.md",
+          "line_start": 1,
+          "line_end": 32,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/mysql/README.md#L1",
+          "license": "MPL-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/mysql",
+          "symbols": [],
+          "config_keys": [
+            "client.service.name",
+            "client.service.target"
+          ],
+          "upstream_file_sha256": "9e9d389cbe45e1df196ad7057543c1ae2d40bf16e630b9eba7a2adc3732f0ade",
+          "sha256": "63dc022d4e6242e139fae4072992818132ea172f15c092367820fcb35287ec6f",
+          "local_path": "sources/mysql-mysql_README.md-1.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "mysql/v1.0.0",
+          "path": "mysql/error.go",
+          "line_start": 1,
+          "line_end": 50,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/mysql/error.go#L1",
+          "license": "MPL-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/mysql",
+          "symbols": [
+            "IsDupEntryError",
+            "IsNoRowsError",
+            "IsSyntaxError"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "7ef49a2cb711cd0b6f4d6e36b1c4cb97f06d55df315bd6a497b3a0a063729399",
+          "sha256": "7ef49a2cb711cd0b6f4d6e36b1c4cb97f06d55df315bd6a497b3a0a063729399",
+          "local_path": "sources/mysql-mysql_error.go-1.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "mysql/v1.0.0",
+          "path": "mysql/client.go",
+          "line_start": 222,
+          "line_end": 238,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/mysql/client.go#L222",
+          "license": "MPL-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/mysql",
+          "symbols": [
+            "NextFunc",
+            "TxFunc",
+            "TxxFunc"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "132754ae8dbf01cb844d59dae6829aecf4bfdc9174c2c2c1bac3bc47eb57962a",
+          "sha256": "09eae5138118e31ed307978c854ab94b261010881d884b0f72273bbef9055f59",
+          "local_path": "sources/mysql-mysql_client.go-222.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "mysql/v1.0.0",
+          "path": "mysql/options.go",
+          "line_start": 1,
+          "line_end": 20,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/mysql/options.go#L1",
+          "license": "MPL-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/mysql",
+          "symbols": [
+            "WithTxIsolation",
+            "WithTxReadOnly"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "5a76e67455e8775ca3c3d637e5a433721055936e9667ac7f9a18ac13ed04551b",
+          "sha256": "5a76e67455e8775ca3c3d637e5a433721055936e9667ac7f9a18ac13ed04551b",
+          "local_path": "sources/mysql-mysql_options.go-1.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "mysql/v1.0.0",
+          "path": "mysql/transport.go",
+          "line_start": 1,
+          "line_end": 22,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/mysql/transport.go#L1",
+          "license": "MPL-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/mysql",
+          "symbols": [
+            "driver.MySQLError"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "0f07b2ad839b08b8d58698cde0958125095564b553a3efa8ac07936a7e937a6a",
+          "sha256": "a33b4bf2d9fea8cbd37549a10940a94f22c55cb8fe1c7cefe65ef0442ac08da2",
+          "local_path": "sources/mysql-mysql_transport.go-1.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "mysql/v1.0.0",
+          "path": "mysql/transport.go",
+          "line_start": 61,
+          "line_end": 70,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/mysql/transport.go#L61",
+          "license": "MPL-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/mysql",
+          "symbols": [
+            "RoundTrip"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "0f07b2ad839b08b8d58698cde0958125095564b553a3efa8ac07936a7e937a6a",
+          "sha256": "387ddcb01b60d2e94a4a3da8483655620681adedfdbbd52022e53b42f4d056b0",
+          "local_path": "sources/mysql-mysql_transport.go-61.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "mysql/v1.0.0",
+          "path": "mysql/transport.go",
+          "line_start": 101,
+          "line_end": 122,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/mysql/transport.go#L101",
+          "license": "MPL-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/mysql",
+          "symbols": [
+            "generateTRPCError"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "0f07b2ad839b08b8d58698cde0958125095564b553a3efa8ac07936a7e937a6a",
+          "sha256": "efb7fa14b230bde4aec60e33e4098e4e1f46338f7b05bf54e796e1fdabe71b16",
+          "local_path": "sources/mysql-mysql_transport.go-101.txt"
+        },
+        {
+          "repository": "go-sql-driver/mysql",
+          "commit": "bcc459a906419e2890a50fc2c99ea6dd927a88f2",
+          "version": "v1.6.0",
+          "path": "errors.go",
+          "line_start": 57,
+          "line_end": 65,
+          "url": "https://github.com/go-sql-driver/mysql/blob/bcc459a906419e2890a50fc2c99ea6dd927a88f2/errors.go#L57",
+          "license": "MPL-2.0",
+          "import_path": "github.com/go-sql-driver/mysql",
+          "symbols": [
+            "MySQLError",
+            "MySQLError.Number",
+            "MySQLError.Message",
+            "MySQLError.Error"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "95f92b821cbf9243b2013a4ef01a82c77cf7b476defdaebc9568c57424a79824",
+          "sha256": "739a7f4086098c3e69e6f41c44cb541ea89d8e1ddc16a01ee8ab223e1edbe68d",
+          "local_path": "sources/driver-errors.go-57.txt"
+        },
+        {
+          "repository": "go-sql-driver/mysql",
+          "commit": "bcc459a906419e2890a50fc2c99ea6dd927a88f2",
+          "version": "v1.6.0",
+          "path": "errors.go",
+          "line_start": 1,
+          "line_end": 8,
+          "url": "https://github.com/go-sql-driver/mysql/blob/bcc459a906419e2890a50fc2c99ea6dd927a88f2/errors.go#L1",
+          "license": "MPL-2.0",
+          "import_path": "github.com/go-sql-driver/mysql",
+          "symbols": [],
+          "config_keys": [],
+          "upstream_file_sha256": "95f92b821cbf9243b2013a4ef01a82c77cf7b476defdaebc9568c57424a79824",
+          "sha256": "14d2207aa8c5617cf23ac7582a188586531eebb117f0ad30dcbee01dd8412965",
+          "local_path": "sources/driver-errors.go-notice.txt"
+        },
+        {
+          "repository": "jmoiron/sqlx",
+          "commit": "28212d434cdd87418ecd0cb81173690ce7ac6ab6",
+          "version": "v1.3.5",
+          "path": "sqlx.go",
+          "line_start": 18,
+          "line_end": 48,
+          "url": "https://github.com/jmoiron/sqlx/blob/28212d434cdd87418ecd0cb81173690ce7ac6ab6/sqlx.go#L18",
+          "license": "MIT",
+          "import_path": "github.com/jmoiron/sqlx",
+          "symbols": [
+            "NameMapper",
+            "db struct tags"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "3ea3a49ea238a9b851baf035e38302fe8fee67bd568915d9a64df4c90d9bb154",
+          "sha256": "246b354604dcad3753a75d9f47c76d3989c929b20c0d22705f421e03dfe35cf3",
+          "local_path": "sources/jmoiron_sqlx-sqlx.go-18.txt"
+        },
+        {
+          "repository": "jmoiron/sqlx",
+          "commit": "28212d434cdd87418ecd0cb81173690ce7ac6ab6",
+          "version": "v1.3.5",
+          "path": "reflectx/reflect.go",
+          "line_start": 280,
+          "line_end": 314,
+          "url": "https://github.com/jmoiron/sqlx/blob/28212d434cdd87418ecd0cb81173690ce7ac6ab6/reflectx/reflect.go#L280",
+          "license": "MIT",
+          "import_path": "github.com/jmoiron/sqlx",
+          "symbols": [
+            "NameMapper",
+            "db struct tags"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "8c04b64f2a31ec7480c14ac1dc7e612cc24ca21959eca062c038f6094ece350a",
+          "sha256": "4f290d0cc498dc5d56f6532b4e75778922f18d75b98483811a13df828f419580",
+          "local_path": "sources/jmoiron_sqlx-reflectx_reflect.go-280.txt"
+        }
+      ],
+      "required_for": [
+        "mysql"
+      ],
+      "provides_symbols": [
+        "Client",
+        "NewClientProxy",
+        "Exec",
+        "Query",
+        "QueryRow",
+        "Get",
+        "Select",
+        "Transaction",
+        "NextFunc",
+        "TxFunc",
+        "TxxFunc",
+        "TxOption",
+        "IsDupEntryError",
+        "IsNoRowsError",
+        "generateTRPCError",
+        "RoundTrip",
+        "driver.MySQLError"
+      ],
+      "requires_symbols": [
+        "NextFunc",
+        "TxFunc",
+        "TxxFunc",
+        "TxOption"
+      ],
+      "semantic_links": [
+        {
+          "claim": "The native driver error is the concrete exported *github.com/go-sql-driver/mysql.MySQLError. Its Number uint16 and Message string are struct fields, not interface methods. Import the native driver under a distinct alias from trpc-database/mysql; use its concrete pointer type for errors.As. Never invent interface{Number uint16}, a nonexistent Number() method, or a local replacement struct.",
+          "evidence": [
+            {
+              "local_path": "sources/driver-errors.go-57.txt",
+              "quote": "type MySQLError struct {"
+            },
+            {
+              "local_path": "sources/driver-errors.go-57.txt",
+              "quote": "Number  uint16"
+            },
+            {
+              "local_path": "sources/mysql-mysql_transport.go-101.txt",
+              "quote": "var mySQLError *mysql.MySQLError"
+            }
+          ]
+        },
+        {
+          "claim": "The public Client.QueryRow(ctx,dest,query,args...) fills a destination []interface{} and returns error; it does NOT return *sql.Row like database/sql.DB.QueryRowContext. Client.Get is an available alternative for struct/scalar reads. The Client interface does not expose a GetDB() accessor: do not invent downcasts or native database/row adapters. Native *sql.Tx methods are available only in a Transaction callback.",
+          "evidence": [
+            {
+              "local_path": "sources/mysql-mysql_client.go-1.txt",
+              "quote": "QueryRow(ctx context.Context, dest []interface{}, query string, args ...interface{}) error"
+            },
+            {
+              "local_path": "sources/mysql-mysql_client.go-1.txt",
+              "quote": "Get(ctx context.Context, dest interface{}, query string, args ...interface{}) error"
+            },
+            {
+              "local_path": "sources/mysql-mysql_client.go-222.txt",
+              "quote": "TxFunc func(*sql.Tx) error"
+            }
+          ]
+        },
+        {
+          "claim": "Client.Get/Select use sqlx struct scanning. Default NameMapper lowercases Go field names; it does not convert CamelCase to snake_case and does not read json tags. Explicit db tags must match selected columns (or deliberate projection aliases). Do not disable strict mapping to hide a mismatch.",
+          "evidence": [
+            {
+              "local_path": "sources/jmoiron_sqlx-sqlx.go-18.txt",
+              "quote": "var NameMapper = strings.ToLower"
+            },
+            {
+              "local_path": "sources/jmoiron_sqlx-sqlx.go-18.txt",
+              "quote": "reflectx.NewMapperFunc(\"db\", NameMapper)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mysql-transaction-and-rollback",
+      "capability": "mysql",
+      "entries": [
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "mysql/v1.0.0",
+          "path": "mysql/README.md",
+          "line_start": 91,
+          "line_end": 108,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/mysql/README.md#L91",
+          "license": "MPL-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/mysql",
+          "symbols": [
+            "Transaction",
+            "TxFunc"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "9e9d389cbe45e1df196ad7057543c1ae2d40bf16e630b9eba7a2adc3732f0ade",
+          "sha256": "7ef26110435089fe234fab1cae7f09d81338e478e957887a9abf550f38bd5f43",
+          "local_path": "sources/mysql-mysql_README.md-91.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "mysql/v1.0.0",
+          "path": "mysql/transport.go",
+          "line_start": 268,
+          "line_end": 295,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/mysql/transport.go#L268",
+          "license": "MPL-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/mysql",
+          "symbols": [
+            "handleTransaction"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "0f07b2ad839b08b8d58698cde0958125095564b553a3efa8ac07936a7e937a6a",
+          "sha256": "caf8b4af5d7b76ccfda1a32bb7749e3331db50840adf1ab1fb5d3f04f391700c",
+          "local_path": "sources/mysql-mysql_transport.go-268.txt"
+        }
+      ],
+      "requires": [
+        "mysql-client-and-config"
+      ],
+      "required_for": [
+        "mysql.transactions"
+      ],
+      "requires_symbols": [
+        "Client",
+        "Transaction",
+        "TxFunc",
+        "TxOption",
+        "generateTRPCError",
+        "RoundTrip"
+      ],
+      "provides_symbols": [],
+      "semantic_links": [
+        {
+          "claim": "Transaction callbacks receive a native *sql.Tx. Operations in that callback return native SQL/driver errors, not the framework errors expected by IsDupEntryError. The helper only accepts *errs.Error. Classify native driver errors in the callback or use framework helpers on the normalized error returned by Client.Transaction.",
+          "evidence": [
+            {
+              "local_path": "sources/mysql-mysql_client.go-222.txt",
+              "quote": "TxFunc func(*sql.Tx) error"
+            },
+            {
+              "local_path": "sources/mysql-mysql_error.go-1.txt",
+              "quote": "e, ok := err.(*errs.Error)"
+            },
+            {
+              "local_path": "sources/mysql-mysql_transport.go-101.txt",
+              "quote": "return errs.New(int(mySQLError.Number), mySQLError.Message)"
+            }
+          ]
+        },
+        {
+          "claim": "A non-nil callback error causes rollback, then RoundTrip normalizes the returned error. An arbitrary callback sentinel/custom error can become a framework network error with its message, losing original identity/type. Preserve domain classification as local callback state instead of testing custom error identity after Transaction. This is a source-derived middleware interpretation, not a business implementation.",
+          "evidence": [
+            {
+              "local_path": "sources/mysql-mysql_transport.go-268.txt",
+              "quote": "if err := req.tx(tx); err != nil {"
+            },
+            {
+              "local_path": "sources/mysql-mysql_transport.go-61.txt",
+              "quote": "err = generateTRPCError(err)"
+            },
+            {
+              "local_path": "sources/mysql-mysql_transport.go-101.txt",
+              "quote": "return errs.NewFrameError(errs.RetClientNetErr, err.Error())"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trpc-rpc-registration-and-client",
+      "capability": "trpc",
+      "entries": [
+        {
+          "repository": "trpc-group/trpc-go",
+          "commit": "5904f6faf601987f5042c0dd3a48b5813b3c3b78",
+          "version": "v1.0.3",
+          "path": "examples/features/metadata/server/main.go",
+          "line_start": 1,
+          "line_end": 44,
+          "url": "https://github.com/trpc-group/trpc-go/blob/5904f6faf601987f5042c0dd3a48b5813b3c3b78/examples/features/metadata/server/main.go#L1",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-go",
+          "symbols": [
+            "NewServer",
+            "RegisterGreeterService",
+            "Serve"
+          ],
+          "config_keys": [
+            "server.service.name"
+          ],
+          "upstream_file_sha256": "99eac6fd2e21b7bf6bb20c9173ae2a7bc457e7ae14fa7bac475f6207725640c4",
+          "sha256": "051398d1e8c45d7a6ced7966dc898f37903931e2040221e840634149aca2aae0",
+          "local_path": "sources/trpc-examples_features_metadata_server_main.go-1.txt"
+        },
+        {
+          "repository": "trpc-group/trpc-go",
+          "commit": "5904f6faf601987f5042c0dd3a48b5813b3c3b78",
+          "version": "v1.0.3",
+          "path": "examples/features/metadata/server/trpc_go.yaml",
+          "line_start": 1,
+          "line_end": 31,
+          "url": "https://github.com/trpc-group/trpc-go/blob/5904f6faf601987f5042c0dd3a48b5813b3c3b78/examples/features/metadata/server/trpc_go.yaml#L1",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-go",
+          "symbols": [],
+          "config_keys": [
+            "server.service.name",
+            "server.service.protocol",
+            "server.service.network",
+            "server.service.port"
+          ],
+          "upstream_file_sha256": "07bb9655951d78eb318c658f6d668300d8d8a8b44f9d650dd72d0d551b9a180f",
+          "sha256": "448fe62aa5d71043a11496c088dd402bed8bf9e1d015fee0c0996ff61e9f02db",
+          "local_path": "sources/trpc-examples_features_metadata_server_trpc_go.yaml-1.txt"
+        },
+        {
+          "repository": "trpc-group/trpc-go",
+          "commit": "5904f6faf601987f5042c0dd3a48b5813b3c3b78",
+          "version": "v1.0.3",
+          "path": "examples/features/metadata/client/main.go",
+          "line_start": 18,
+          "line_end": 49,
+          "url": "https://github.com/trpc-group/trpc-go/blob/5904f6faf601987f5042c0dd3a48b5813b3c3b78/examples/features/metadata/client/main.go#L18",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-go",
+          "symbols": [
+            "NewGreeterClientProxy",
+            "SayHello"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "e3e83108d3b30b2cf27063e0adbe78b4a35ac6741991a19568d8a880851db94c",
+          "sha256": "f1828d4922a6e8a25cae43318bf978c3713ae649db1dfce6e7a1e122d8cc8742",
+          "local_path": "sources/trpc-examples_features_metadata_client_main.go-18.txt"
+        },
+        {
+          "repository": "trpc-group/trpc-go",
+          "commit": "5904f6faf601987f5042c0dd3a48b5813b3c3b78",
+          "version": "v1.0.3",
+          "path": "testdata/trpc/helloworld/helloworld.proto",
+          "line_start": 1,
+          "line_end": 30,
+          "url": "https://github.com/trpc-group/trpc-go/blob/5904f6faf601987f5042c0dd3a48b5813b3c3b78/testdata/trpc/helloworld/helloworld.proto#L1",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-go",
+          "symbols": [
+            "Greeter",
+            "HelloRequest",
+            "HelloReply"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "29d8268c632a0cc32047c3ecb9ae5fe8ca89e88551d48683a943843ebb38facb",
+          "sha256": "29d8268c632a0cc32047c3ecb9ae5fe8ca89e88551d48683a943843ebb38facb",
+          "local_path": "sources/trpc-testdata_trpc_helloworld_helloworld.proto-1.txt"
+        }
+      ]
+    },
+    {
+      "id": "redis-client-config",
+      "capability": "redis",
+      "required_for": [
+        "redis"
+      ],
+      "provides_symbols": [
+        "goredis.New",
+        "UniversalClient"
+      ],
+      "entries": [
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "goredis/v1.0.0",
+          "path": "goredis/client.go",
+          "line_start": 1,
+          "line_end": 115,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/goredis/client.go#L1",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/goredis",
+          "symbols": [
+            "New"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "202f44ff50f3ee33456e95c8c93771b5f97584ab27bc430da3e0694664ef4210",
+          "sha256": "8a780300d3c62d1f2223a1b46ae0540a92de66fbc32676ca2da43da411a224b0",
+          "local_path": "sources/trpc-ecosystem_go-database-goredis_client.go-1.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "goredis/v1.0.0",
+          "path": "goredis/README.md",
+          "line_start": 1,
+          "line_end": 46,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/goredis/README.md#L1",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/goredis",
+          "symbols": [],
+          "config_keys": [],
+          "upstream_file_sha256": "a053a5e5e24eb6952347d447531c39207c0a3ea7ab49c53855208eef99cb7ae7",
+          "sha256": "5cf20e471b5f31d63e9cfff4ed20fe6052adf82de5243301b852e6a589f3681e",
+          "local_path": "sources/trpc-ecosystem_go-database-goredis_README.md-1.txt"
+        },
+        {
+          "repository": "redis/go-redis",
+          "commit": "fcb3506e792f7b3d990999ce9d630c02c621511b",
+          "version": "v9.0.4",
+          "path": "universal.go",
+          "line_start": 190,
+          "line_end": 215,
+          "url": "https://github.com/redis/go-redis/blob/fcb3506e792f7b3d990999ce9d630c02c621511b/universal.go#L190",
+          "license": "BSD-2-Clause",
+          "import_path": "github.com/redis/go-redis/v9",
+          "symbols": [
+            "UniversalClient"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "ec873dd83b0a119f055b1f3ee50bd40a7ba8158fd95971abffe97f2ef25075ad",
+          "sha256": "65c006e1268b127ee17d92f98ae3fdee17a873ec3982f7e041337303dc687885",
+          "local_path": "sources/redis_go-redis-universal.go-190.txt"
+        }
+      ]
+    },
+    {
+      "id": "redis-commands-expiration-errors",
+      "capability": "redis",
+      "required_for": [
+        "redis"
+      ],
+      "requires": [
+        "redis-client-config"
+      ],
+      "requires_symbols": [
+        "UniversalClient"
+      ],
+      "provides_symbols": [
+        "Get",
+        "Set",
+        "Del",
+        "redis.Nil"
+      ],
+      "entries": [
+        {
+          "repository": "redis/go-redis",
+          "commit": "fcb3506e792f7b3d990999ce9d630c02c621511b",
+          "version": "v9.0.4",
+          "path": "commands.go",
+          "line_start": 666,
+          "line_end": 671,
+          "url": "https://github.com/redis/go-redis/blob/fcb3506e792f7b3d990999ce9d630c02c621511b/commands.go#L666",
+          "license": "BSD-2-Clause",
+          "import_path": "github.com/redis/go-redis/v9",
+          "symbols": [
+            "Del"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "369041800ec709ce8bad951c8abad866bdbbe6334d5522c660e6485f9f8d0bde",
+          "sha256": "730fb9b7d1da39ce0bf063dafc7e49651ad6518c8b4ecc54ff2792a1a26543c3",
+          "local_path": "sources/redis_go-redis-commands.go-666.txt"
+        },
+        {
+          "repository": "redis/go-redis",
+          "commit": "fcb3506e792f7b3d990999ce9d630c02c621511b",
+          "version": "v9.0.4",
+          "path": "commands.go",
+          "line_start": 973,
+          "line_end": 985,
+          "url": "https://github.com/redis/go-redis/blob/fcb3506e792f7b3d990999ce9d630c02c621511b/commands.go#L973",
+          "license": "BSD-2-Clause",
+          "import_path": "github.com/redis/go-redis/v9",
+          "symbols": [
+            "Get"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "369041800ec709ce8bad951c8abad866bdbbe6334d5522c660e6485f9f8d0bde",
+          "sha256": "e38b5d16de338dabfab5b72c15882f05a7f1bd273a029fa30046f74beb10796e",
+          "local_path": "sources/redis_go-redis-commands.go-973.txt"
+        },
+        {
+          "repository": "redis/go-redis",
+          "commit": "fcb3506e792f7b3d990999ce9d630c02c621511b",
+          "version": "v9.0.4",
+          "path": "commands.go",
+          "line_start": 1075,
+          "line_end": 1110,
+          "url": "https://github.com/redis/go-redis/blob/fcb3506e792f7b3d990999ce9d630c02c621511b/commands.go#L1075",
+          "license": "BSD-2-Clause",
+          "import_path": "github.com/redis/go-redis/v9",
+          "symbols": [
+            "Set"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "369041800ec709ce8bad951c8abad866bdbbe6334d5522c660e6485f9f8d0bde",
+          "sha256": "51569d6c8498bdbaca856e82ae49d66df38e59d89e9459806cb071967efe7dcb",
+          "local_path": "sources/redis_go-redis-commands.go-1075.txt"
+        },
+        {
+          "repository": "redis/go-redis",
+          "commit": "fcb3506e792f7b3d990999ce9d630c02c621511b",
+          "version": "v9.0.4",
+          "path": "command.go",
+          "line_start": 534,
+          "line_end": 565,
+          "url": "https://github.com/redis/go-redis/blob/fcb3506e792f7b3d990999ce9d630c02c621511b/command.go#L534",
+          "license": "BSD-2-Clause",
+          "import_path": "github.com/redis/go-redis/v9",
+          "symbols": [
+            "StatusCmd.Result"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "cc1451f52ff72b2ad5ff3efbc851d9c548f4319920159e74f49f4f9b484456a2",
+          "sha256": "9a103f76422ded1e6dfd54578d0a796485c1494accf6d7f4b5e56a4eaf42810f",
+          "local_path": "sources/redis_go-redis-command.go-534.txt"
+        },
+        {
+          "repository": "redis/go-redis",
+          "commit": "fcb3506e792f7b3d990999ce9d630c02c621511b",
+          "version": "v9.0.4",
+          "path": "command.go",
+          "line_start": 818,
+          "line_end": 849,
+          "url": "https://github.com/redis/go-redis/blob/fcb3506e792f7b3d990999ce9d630c02c621511b/command.go#L818",
+          "license": "BSD-2-Clause",
+          "import_path": "github.com/redis/go-redis/v9",
+          "symbols": [
+            "StringCmd.Result"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "cc1451f52ff72b2ad5ff3efbc851d9c548f4319920159e74f49f4f9b484456a2",
+          "sha256": "87bc3afa2d7c084a3ac6c9a23bf4be366c43a92f2799e29214bcf6dabd408837",
+          "local_path": "sources/redis_go-redis-command.go-818.txt"
+        },
+        {
+          "repository": "redis/go-redis",
+          "commit": "fcb3506e792f7b3d990999ce9d630c02c621511b",
+          "version": "v9.0.4",
+          "path": "redis.go",
+          "line_start": 1,
+          "line_end": 24,
+          "url": "https://github.com/redis/go-redis/blob/fcb3506e792f7b3d990999ce9d630c02c621511b/redis.go#L1",
+          "license": "BSD-2-Clause",
+          "import_path": "github.com/redis/go-redis/v9",
+          "symbols": [
+            "Nil"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "3a7ea57c341c6d5ddd62665fcb5cac478f90308e94d5cf393ca34496e064dc1e",
+          "sha256": "bf8dc6b02d1508f61d27dd160d47e36940742d5468114494de347ae2875ff3a2",
+          "local_path": "sources/redis_go-redis-redis.go-1.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "goredis/v1.0.0",
+          "path": "goredis/client.go",
+          "line_start": 239,
+          "line_end": 259,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/goredis/client.go#L239",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/goredis",
+          "symbols": [
+            "hook.invoke"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "202f44ff50f3ee33456e95c8c93771b5f97584ab27bc430da3e0694664ef4210",
+          "sha256": "5cf0a0a0f871d65e1333a2e0add707ca05ac7fadc430f9d4fbd13d0a0d68aed7",
+          "local_path": "sources/trpc-ecosystem_go-database-goredis_client.go-239.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "goredis/v1.0.0",
+          "path": "goredis/client.go",
+          "line_start": 343,
+          "line_end": 360,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/goredis/client.go#L343",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/goredis",
+          "symbols": [
+            "TRPCErr"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "202f44ff50f3ee33456e95c8c93771b5f97584ab27bc430da3e0694664ef4210",
+          "sha256": "b55ace8348f326f37bb10940421cf89e54f039f02fb701c5d945e5446191d571",
+          "local_path": "sources/trpc-ecosystem_go-database-goredis_client.go-343.txt"
+        }
+      ],
+      "semantic_links": [
+        {
+          "claim": "Redis Set expiration is time.Duration: convert requested seconds with time.Second; zero means no expiration. Get returns a StringCmd; use Result() to obtain value/error. The plugin preserves callErr, so a missing-key redis.Nil is still returned by command Result even though monitoring TRPCErr treats redis.Nil as success.",
+          "evidence": [
+            {
+              "local_path": "sources/redis_go-redis-commands.go-1075.txt",
+              "quote": "expiration time.Duration"
+            },
+            {
+              "local_path": "sources/trpc-ecosystem_go-database-goredis_client.go-239.txt",
+              "quote": "return callErr"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kafka-producer-client-config",
+      "capability": "kafka",
+      "required_for": [
+        "kafka"
+      ],
+      "provides_symbols": [
+        "kafka.Client",
+        "kafka.NewClientProxy"
+      ],
+      "entries": [
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "kafka/v1.0.0",
+          "path": "kafka/client.go",
+          "line_start": 1,
+          "line_end": 106,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/kafka/client.go#L1",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/kafka",
+          "symbols": [
+            "Client",
+            "Produce",
+            "NewClientProxy"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "8a4bdbe0b90752e01a99a07ed491fb3a52c33f86f546d5dc88b4e42aaca22111",
+          "sha256": "57c33a04760cbc7a77d91ad9bc5e380b8637192779ba929b880acf1df8f22fd5",
+          "local_path": "sources/trpc-ecosystem_go-database-kafka_client.go-1.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "kafka/v1.0.0",
+          "path": "kafka/README.md",
+          "line_start": 7,
+          "line_end": 44,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/kafka/README.md#L7",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/kafka",
+          "symbols": [],
+          "config_keys": [],
+          "upstream_file_sha256": "8f93f04eccd852c5fec6537c255ec71f716468633e7653d9098c760550ce39ea",
+          "sha256": "20eff3e70b2f0d59ca0c7daef01d0babea3825202f23221d63952850371e0bbd",
+          "local_path": "sources/trpc-ecosystem_go-database-kafka_README.md-7.txt"
+        }
+      ]
+    },
+    {
+      "id": "kafka-consumer-types-config",
+      "capability": "kafka",
+      "required_for": [
+        "kafka.consumer"
+      ],
+      "requires": [
+        "kafka-producer-client-config"
+      ],
+      "requires_symbols": [
+        "kafka.Client"
+      ],
+      "provides_symbols": [
+        "ConsumerMessage",
+        "RegisterKafkaHandlerService",
+        "ParseAddress"
+      ],
+      "entries": [
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "kafka/v1.0.0",
+          "path": "kafka/service_desc.go",
+          "line_start": 1,
+          "line_end": 64,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/kafka/service_desc.go#L1",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/kafka",
+          "symbols": [
+            "RegisterKafkaHandlerService"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "459e3b92fed3ba8b9014a34d05aa999b3d1d4bb1b522becd1f38638f87d76558",
+          "sha256": "c32e4e2e563a7913b71742742bca15feae6bbd71a14b207182868f91d3944e59",
+          "local_path": "sources/trpc-ecosystem_go-database-kafka_service_desc.go-1.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "kafka/v1.0.0",
+          "path": "kafka/config.go",
+          "line_start": 19,
+          "line_end": 68,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/kafka/config.go#L19",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/kafka",
+          "symbols": [
+            "UserConfig"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "d6cdb9a9c6e8af1873a7bf40b95be4dfe934ff8af58b346d1ae55dd669657f17",
+          "sha256": "5b729a8019f2291d390a2d5aac424beee61b5fdc30f8ead609276fec0bc61c45",
+          "local_path": "sources/trpc-ecosystem_go-database-kafka_config.go-19.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "kafka/v1.0.0",
+          "path": "kafka/config.go",
+          "line_start": 165,
+          "line_end": 209,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/kafka/config.go#L165",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/kafka",
+          "symbols": [
+            "ParseAddress",
+            "RegisterAddrConfig"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "d6cdb9a9c6e8af1873a7bf40b95be4dfe934ff8af58b346d1ae55dd669657f17",
+          "sha256": "d76bdea18749f68a07eeab1b15d9799d8cab2a38a9f9772ccaae75c86d9276f6",
+          "local_path": "sources/trpc-ecosystem_go-database-kafka_config.go-165.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "kafka/v1.0.0",
+          "path": "kafka/kafka.go",
+          "line_start": 135,
+          "line_end": 184,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/kafka/kafka.go#L135",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/kafka",
+          "symbols": [
+            "consumer retry and MarkMessage"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "2394e7db79e81b534c764e883d74d308265594891c4f38c87b4b816acf72a5a0",
+          "sha256": "cd91838db916b1928432b936327acb55125750bc31fcdb35af9e62d80c0744a2",
+          "local_path": "sources/trpc-ecosystem_go-database-kafka_kafka.go-135.txt"
+        },
+        {
+          "repository": "trpc-ecosystem/go-database",
+          "commit": "b4dee2b0e30016aff63704dea538b45cfd9554f5",
+          "version": "kafka/v1.0.0",
+          "path": "kafka/examples/consumer/trpc_go.yaml",
+          "line_start": 1,
+          "line_end": 17,
+          "url": "https://github.com/trpc-ecosystem/go-database/blob/b4dee2b0e30016aff63704dea538b45cfd9554f5/kafka/examples/consumer/trpc_go.yaml#L1",
+          "license": "Apache-2.0",
+          "import_path": "trpc.group/trpc-go/trpc-database/kafka",
+          "symbols": [],
+          "config_keys": [],
+          "upstream_file_sha256": "6cfef63360ecc4350a29bc428b05e074461d2b9b5899f2ce25da34812eac87bf",
+          "sha256": "6cfef63360ecc4350a29bc428b05e074461d2b9b5899f2ce25da34812eac87bf",
+          "local_path": "sources/trpc-ecosystem_go-database-kafka_examples_consumer_trpc_go.yaml-1.txt"
+        },
+        {
+          "repository": "Shopify/sarama",
+          "commit": "0676fc297fca0c5dfba927c0c4f6925ce2ae1e77",
+          "version": "v1.29.1",
+          "path": "consumer.go",
+          "line_start": 13,
+          "line_end": 40,
+          "url": "https://github.com/Shopify/sarama/blob/0676fc297fca0c5dfba927c0c4f6925ce2ae1e77/consumer.go#L13",
+          "license": "MIT",
+          "import_path": "github.com/Shopify/sarama",
+          "symbols": [
+            "ConsumerMessage"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "d4046a3683aaf2841145ed547d2a772b18376f5e519fb62ae86d4ec1fa9451ed",
+          "sha256": "15254ecaf9ecd45605100390d0c2b5a69c42f7dc8a1d9f6400177700ae82e91e",
+          "local_path": "sources/Shopify_sarama-consumer.go-13.txt"
+        },
+        {
+          "repository": "Shopify/sarama",
+          "commit": "0676fc297fca0c5dfba927c0c4f6925ce2ae1e77",
+          "version": "v1.29.1",
+          "path": "record.go",
+          "line_start": 1,
+          "line_end": 24,
+          "url": "https://github.com/Shopify/sarama/blob/0676fc297fca0c5dfba927c0c4f6925ce2ae1e77/record.go#L1",
+          "license": "MIT",
+          "import_path": "github.com/Shopify/sarama",
+          "symbols": [
+            "RecordHeader"
+          ],
+          "config_keys": [],
+          "upstream_file_sha256": "3c4f094dbf5a5cdd75dc0df12bf8846d103de6a81de604b5f0f33d1324caaab4",
+          "sha256": "aa717619c3b6cb24d2ba9129bcfca38a9e0bbeb476e46d2326d38a4d4d10f556",
+          "local_path": "sources/Shopify_sarama-record.go-1.txt"
+        }
+      ]
+    }
+  ],
+  "licenses": {
+    "mysql": "Declared MPL-2.0 in mysql/LICENSE; text names gorm-mysql, recorded literally without relabeling it Apache.",
+    "trpc": "Apache-2.0 in upstream LICENSE.",
+    "driver": "MPL-2.0; official go-sql-driver/mysql v1.6.0 selected by the pinned MySQL plugin dependency.",
+    "goredis": "Apache-2.0, root upstream LICENSE excluding mysql/gorm",
+    "kafka": "Apache-2.0, kafka/LICENSE",
+    "redis-sdk": "BSD-2-Clause",
+    "sarama": "MIT",
+    "sqlx": "MIT, jmoiron/sqlx v1.3.5"
+  },
+  "change_note": "Complete linked official driver MySQLError struct definition; no benchmark implementation or values added."
+}

@@ -1,0 +1,86 @@
+// Package mysql Wrapping standard library mysql
+package mysql
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+
+	"github.com/jmoiron/sqlx"
+
+	"trpc.group/trpc-go/trpc-go/client"
+	"trpc.group/trpc-go/trpc-go/codec"
+	"trpc.group/trpc-go/trpc-utils/copyutils"
+
+	// anonymous import package
+	_ "trpc.group/trpc-go/trpc-selector-dsn"
+)
+
+const (
+	opExec = iota + 1
+	opGet
+	opQuery
+	opQueryRow
+	opQueryToStruct
+	opQueryToStructs
+	opSelect
+	opTransaction
+	opNamedExec
+	opNamedQuery
+	opTransactionx
+)
+
+// Client client Structure
+//
+//go:generate mockgen -source=client.go -destination=mockmysql/mysql_mock.go -package=mockmysql.
+type Client interface {
+	// DB implementation via native sql.
+	Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	Query(ctx context.Context, next NextFunc, query string, args ...interface{}) error
+	QueryRow(ctx context.Context, dest []interface{}, query string, args ...interface{}) error
+	Transaction(ctx context.Context, fn TxFunc, opts ...TxOption) error
+
+	// Implementation via sqlx.
+	Get(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	NamedExec(ctx context.Context, query string, args interface{}) (sql.Result, error)
+	NamedQuery(ctx context.Context, query string, args interface{}) (*sqlx.Rows, error)
+	QueryToStruct(ctx context.Context, dst interface{}, query string, args ...interface{}) error
+	QueryToStructs(ctx context.Context, dst interface{}, query string, args ...interface{}) error
+	Transactionx(ctx context.Context, fn TxxFunc, opts ...TxOption) error
+}
+
+// Client back-end request structure.
+type mysqlCli struct {
+	serviceName string
+	client      client.Client
+	opts        []client.Option
+	// if unsafe mode is on, it will silently succeed to scan when
+	// columns in the SQL result have no fields in the destination struct.
+	unsafe bool
+}
+
+func newMysqlCli(name string, opts ...client.Option) *mysqlCli {
+	return &mysqlCli{
+		serviceName: name,
+		client:      client.DefaultClient,
+		opts:        append([]client.Option{client.WithProtocol("mysql"), client.WithDisableServiceRouter()}, opts...),
+	}
+}
+
+// NewClientProxy Create a new mysql backend request proxy Mandatory parameter mysql service name: trpc.mysql.xxx.xxx.
+var NewClientProxy = func(name string, opts ...client.Option) Client {
+	return newMysqlCli(name, opts...)
+}
+
+// NewUnsafeClient is similar to NewClientProxy, except that it enables sqlx's unsafe mode,
+// which only affects sqlx-related operations.
+func NewUnsafeClient(name string, opts ...client.Option) Client {
+	c := newMysqlCli(name, opts...)
+	c.unsafe = true // turns on sqlx's unsafe mode
+	return c
+}
+
+// Request mysql request body.
+type Request struct {

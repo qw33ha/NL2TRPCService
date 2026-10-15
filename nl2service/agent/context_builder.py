@@ -21,5 +21,6 @@ def build_main_agent_session(
         ],
         rendered_files=dict(state.get("rendered_files", {})),
         reference_files=dict(state.get("example_reference_files", {})),
+        generation_contract=state.get("generation_contract"),
         repair_feedback=repair_feedback,
     )

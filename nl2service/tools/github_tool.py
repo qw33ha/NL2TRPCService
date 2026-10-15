@@ -73,20 +73,12 @@ class GitHubApiProvider:
             if "(404)" not in str(exc):
                 raise
         payload = {"name": repo, "private": False, "auto_init": True}
-        org_error: GitHubAPIError | None = None
-        if owner:
-            try:
-                response = self._request_json("POST", f"/orgs/{owner}/repos", payload)
-                return str(response["html_url"])
-            except GitHubAPIError as exc:
-                org_error = exc
-        try:
+        account = self._request_json("GET", "/user")
+        if not owner or owner.lower() == str(account["login"]).lower():
             response = self._request_json("POST", "/user/repos", payload)
-            return str(response["html_url"])
-        except GitHubAPIError:
-            if org_error is not None:
-                raise org_error
-            raise
+        else:
+            response = self._request_json("POST", f"/orgs/{owner}/repos", payload)
+        return str(response["html_url"])
 
     def commit_files(
         self,

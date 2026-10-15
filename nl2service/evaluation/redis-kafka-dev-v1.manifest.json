@@ -1,0 +1,6 @@
+{
+  "dataset_sha256": "06d4b01d468f49543803f9504082ba7c5f124bd0a9ef136f60ca5fa4d7400328",
+  "task_count": 2,
+  "dataset_status": "Newly authored development vertical slices, locked before first Agent generation; subsequent tuning must remain development-labelled.",
+  "policy": "Private cases/observers never enter generation or compiler repair."
+}

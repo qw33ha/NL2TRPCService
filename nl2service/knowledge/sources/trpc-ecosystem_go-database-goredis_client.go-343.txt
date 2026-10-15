@@ -1,0 +1,18 @@
+// TRPCErr convert error to trpc format.
+func TRPCErr(err error) error {
+	switch err {
+	case nil, redis.Nil:
+		return nil
+	default:
+		if _, ok := err.(*errs.Error); ok {
+			return err
+		}
+		msg := err.Error()
+		for key, value := range matricsTable {
+			if strings.Contains(msg, value) {
+				return errs.New(int(key), err.Error())
+			}
+		}
+		return errs.New(RetRedisCmdFail, msg)
+	}
+}

@@ -1,0 +1,10 @@
+
+// RoundTrip send and receive mysql packets, return mysql response to ctx inside, no need to return rspbuf here.
+func (ct *ClientTransport) RoundTrip(ctx context.Context, reqBuf []byte,
+	callOpts ...transport.RoundTripOption) (response []byte, err error) {
+	msg := codec.Message(ctx)
+	defer func() {
+		err = generateTRPCError(err)
+	}()
+
+	req, ok := msg.ClientReqHead().(*Request)

@@ -1,0 +1,10 @@
+{
+  "dataset_sha256": "9e346207c2b26ded1d5a967bcb5e267253b7247accf5297158e3679149993302",
+  "task_count": 3,
+  "private_cases": 27,
+  "dataset_status": "Local post-freeze composition holdout; tasks not used for implementation tuning. Developer-authored small sample, not production distribution.",
+  "implementation_freeze": "docs/mysql-generation-freeze.json",
+  "implementation_freeze_sha256": "e65ee4fb9a473fc0560511761034c3be944b0bad11c643203e15b890a3da79b3",
+  "implementation_commit": "2d221c0",
+  "policy": "Freeze before first Agent invocation. No generation/corpus/prompt changes after holdout outcomes; failed tasks become development data if later used to tune."
+}

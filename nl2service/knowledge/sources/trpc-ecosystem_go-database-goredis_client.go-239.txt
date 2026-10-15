@@ -1,0 +1,21 @@
+
+func (h *hook) invoke(ctx context.Context, req *invokeReq, opts ...client.Option) error {
+	ctx = h.fillTRPCMessage(ctx, req.rpcName, req.calleeMethod)
+	var (
+		callErr error
+		rReq    = &Req{Cmd: req.reqBody}
+		rRsp    = &Rsp{}
+	)
+	trpcErr := h.filters.Invoke(ctx, rReq, rRsp, func(ctx context.Context, _, _ interface{}) error {
+		rRsp.Cmd, callErr = req.call(ctx)
+		return TRPCErr(callErr)
+	}, opts...)
+	if callErr != nil {
+		return callErr
+	}
+	return trpcErr
+}
+
+func fixedResponseLength(reqCmd, rspCmd string, max int64) string {
+	rsp := rspCmd
+	if strings.Index(rsp, reqCmd) == 0 {

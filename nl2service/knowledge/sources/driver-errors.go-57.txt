@@ -1,0 +1,9 @@
+// MySQLError is an error type which represents a single MySQL error
+type MySQLError struct {
+	Number  uint16
+	Message string
+}
+
+func (me *MySQLError) Error() string {
+	return fmt.Sprintf("Error %d: %s", me.Number, me.Message)
+}

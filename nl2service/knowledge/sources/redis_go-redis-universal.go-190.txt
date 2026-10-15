@@ -1,0 +1,26 @@
+
+// UniversalClient is an abstract client which - based on the provided options -
+// represents either a ClusterClient, a FailoverClient, or a single-node Client.
+// This can be useful for testing cluster-specific applications locally or having different
+// clients in different environments.
+type UniversalClient interface {
+	Cmdable
+	AddHook(Hook)
+	Watch(ctx context.Context, fn func(*Tx) error, keys ...string) error
+	Do(ctx context.Context, args ...interface{}) *Cmd
+	Process(ctx context.Context, cmd Cmder) error
+	Subscribe(ctx context.Context, channels ...string) *PubSub
+	PSubscribe(ctx context.Context, channels ...string) *PubSub
+	SSubscribe(ctx context.Context, channels ...string) *PubSub
+	Close() error
+	PoolStats() *PoolStats
+}
+
+var (
+	_ UniversalClient = (*Client)(nil)
+	_ UniversalClient = (*ClusterClient)(nil)
+	_ UniversalClient = (*Ring)(nil)
+)
+
+// NewUniversalClient returns a new multi client. The type of the returned client depends
+// on the following conditions:

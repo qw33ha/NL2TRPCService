@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 import yaml
 
 from nl2service.agent.provider import LLMProvider
+from nl2service.spec.models import ServiceSpec
+from nl2service.workflow.updates import apply_field_updates
 
 
 class ClarificationValue(BaseModel):
@@ -71,7 +73,7 @@ class ClarificationInterpreter:
             ConversationDecision,
             method="function_calling",
         )
-        decision = model.invoke(
+        decision = self._invoke_validated(model,
             [
                 SystemMessage(
                     content=(
@@ -83,18 +85,21 @@ class ClarificationInterpreter:
                         "ServiceSpec field in updates, with each value JSON-encoded in value_json. Use response "
                         "to answer user questions clearly. Never invent credentials or infrastructure. Do not "
                         "store conversational references like 'that one' or 'that's the project name' as literal "
-                        "infrastructure values; resolve them from the current spec or ask for the exact value."
+                        "infrastructure values; resolve them from the current spec or ask for the exact value. "
+                        "List indices must already exist in the current spec. To add an input field or rule, "
+                        "replace its entire containing list, preserving existing entries; never use an out-of-range index."
                     )
                 ),
                 HumanMessage(
                     content=(
                         f"Pending clarification: {json.dumps(pending, default=str)}\n"
+                        f"ServiceSpec JSON Schema: {json.dumps(ServiceSpec.model_json_schema())}\n"
                         f"Current spec: {json.dumps(spec.model_dump(mode='json', exclude_none=True) if spec else {}, default=str)}\n"
                         f"Conversation context: {json.dumps(conversation_context or {}, default=str)}\n"
                         f"User message: {answer}"
                     )
                 ),
-            ]
+            ], spec
         )
         return decision
 
@@ -109,7 +114,7 @@ class ClarificationInterpreter:
             ConversationDecision,
             method="function_calling",
         )
-        return model.invoke(
+        return self._invoke_validated(model,
             [
                 SystemMessage(
                     content=(
@@ -121,19 +126,53 @@ class ClarificationInterpreter:
                         "response to answer questions from the supplied specification and approval details. "
                         "Never interpret a question as approval. Never store conversational references such as "
                         "'that one' or 'that's the project name' as infrastructure identifiers; resolve them from "
-                        "the current spec or ask for the literal value."
+                        "the current spec or ask for the literal value. "
+                        "Only use list indices already present in the spec. To add fields or rules, replace "
+                        "the complete containing list and preserve its existing entries. Never emit out-of-range indices."
                     )
                 ),
                 HumanMessage(
                     content=(
                         f"Approval details: {json.dumps(pending, default=str)}\n"
+                        f"ServiceSpec JSON Schema: {json.dumps(ServiceSpec.model_json_schema())}\n"
                         f"Current spec: {json.dumps(spec.model_dump(mode='json', exclude_none=True) if spec else {}, default=str)}\n"
                         f"Conversation context: {json.dumps(conversation_context or {}, default=str)}\n"
                         f"User message: {answer}"
                     )
                 ),
-            ]
+            ], spec
         )
+
+    def _invoke_validated(self, model: Any, messages: list[Any], spec: Any) -> ConversationDecision:
+        decision = model.invoke(messages)
+        # Repair malformed model corrections once using only the public schema
+        # and validation diagnostics. No user state changes until all updates pass.
+        for attempt in range(2):
+            if decision.intent != "correct" or spec is None:
+                return decision
+            try:
+                updates = {
+                    item.field: self._normalize(item.field, json.loads(item.value_json))
+                    for item in decision.updates
+                }
+                apply_field_updates(spec, updates)
+                return decision
+            except (ValueError, TypeError, AttributeError) as exc:
+                if attempt:
+                    return decision  # Runtime retains the gate and reports failure.
+                repaired = model.invoke([*messages, HumanMessage(content=(
+                    "Your proposed correction failed validation. Return a corrected decision for the "
+                    "same user message; preserve its meaning and all existing unrelated fields. "
+                    "Follow the supplied ServiceSpec schema exactly. operations is a coarse enum: "
+                    "use other for checks not covered by its arithmetic/conditional values, and retain "
+                    "the full validation and integer arithmetic requirements in expression text. "
+                    "Do not change intent to approval or discard the correction to avoid validation.\n"
+                    f"Invalid decision: {decision.model_dump_json()}\nValidation: {exc}"
+                ))])
+                if repaired.intent != "correct":
+                    return decision
+                decision = repaired
+        return decision
 
     @staticmethod
     def _normalize(field: str, value: Any, source: str | None = None) -> Any:

@@ -1,0 +1,13 @@
+
+// Get Redis `GET key` command. It returns redis.Nil error when key does not exist.
+func (c cmdable) Get(ctx context.Context, key string) *StringCmd {
+	cmd := NewStringCmd(ctx, "get", key)
+	_ = c(ctx, cmd)
+	return cmd
+}
+
+func (c cmdable) GetRange(ctx context.Context, key string, start, end int64) *StringCmd {
+	cmd := NewStringCmd(ctx, "getrange", key, start, end)
+	_ = c(ctx, cmd)
+	return cmd
+}

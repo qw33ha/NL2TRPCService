@@ -11,6 +11,8 @@ class LLMProvider:
 
     _models: dict[str, Any] = field(default_factory=dict)
     temperature: float = 0.0
+    request_timeout: float = 120.0
+    max_retries: int = 1
 
     def get_model(self, model_name: str) -> Any:
         if model_name in self._models:
@@ -31,6 +33,8 @@ class LLMProvider:
             "api_key": api_key,
             "model": model_name,
             "temperature": self.temperature,
+            "timeout": self.request_timeout,
+            "max_retries": self.max_retries,
         }
         base_url = os.getenv("OPENAI_BASE_URL")
         if base_url:

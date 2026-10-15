@@ -20,8 +20,10 @@ from langchain_core.callbacks import BaseCallbackHandler
 from nl2service.agent.provider import LLMProvider
 from nl2service.runtime.checkpointer import SQLiteCheckpointRuntime
 from nl2service.spec.models import ServiceSpec
+from nl2service.spec.constraints import constraint_tags
 from nl2service.workflow.conversation_graph import ConversationalServiceWorkflow
 from nl2service.workflow.core import WorkflowCore
+from nl2service.workflow.retrieval import HybridExampleSelector
 from nl2service.evaluation.behavior import run_behavior
 from nl2service.evaluation.metrics import summarize, format_summary
 from nl2service.build.verify import GoBuildVerifier, BuildVerificationResult
@@ -135,13 +137,21 @@ class UsageTracker(BaseCallbackHandler):
 
     def on_llm_end(self, response, **kwargs):
         usage = (response.llm_output or {}).get("token_usage", {})
+        cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens")
+        token_details = {}
+        response_metadata = {}
         for generations in response.generations:
             for generation in generations:
                 metadata = getattr(getattr(generation, "message", None), "usage_metadata", None)
                 if metadata:
+                    token_details = metadata.get("input_token_details") or {}
+                    cached = token_details.get("cache_read", cached)
+                    response_metadata = getattr(generation.message, "response_metadata", {}) or {}
                     usage = {"prompt_tokens": metadata.get("input_tokens"), "completion_tokens": metadata.get("output_tokens")}
                     break
         self.calls.append({"input_tokens": usage.get("prompt_tokens"), "output_tokens": usage.get("completion_tokens"),
+                           "cached_input_tokens":cached,"input_token_details":token_details,
+                           "service_tier":response_metadata.get("service_tier"),
                            "model": (response.llm_output or {}).get("model_name"),
                            "seconds": round(time.monotonic() - self.started.pop(kwargs.get("run_id"), time.monotonic()), 3)})
 
@@ -181,7 +191,7 @@ class EvaluationVerifier:
 
 
 def run_task(task: Task, *, live: bool = False, execute_behavior: bool = False, artifacts: Path | None = None,
-             profile: str = "full", model: str | None = None) -> dict:
+             profile: str = "full", model: str | None = None, retrieval_mode: str = "legacy") -> dict:
     started = time.monotonic()
     trace = []
     interrupts = []
@@ -194,6 +204,9 @@ def run_task(task: Task, *, live: bool = False, execute_behavior: bool = False, 
         root = Path(directory)
         core_type = WorkflowCore if profile == "full" else SimplifiedCore
         core = core_type(model=model, provider=MeasuredProvider(tracker) if live else ReplayProvider(task.spec), github_provider=BlockedDelivery())
+        if profile == "full":
+            from nl2service.workflow.examples import ExampleSelector
+            core.example_selector = ExampleSelector() if retrieval_mode == "legacy" else HybridExampleSelector(mode=retrieval_mode)
         if profile == "simplified":
             core.ambiguity_analyzer = NoAmbiguity()
         evaluator = EvaluationVerifier(task.fault)
@@ -306,6 +319,10 @@ def run_task(task: Task, *, live: bool = False, execute_behavior: bool = False, 
             "behavior_attempts": evaluator.behaviors if evaluator else [], "behavior_case_count": len(task.behavior_cases),
             "failure_stage": failure_stage, "fault_injected": evaluator.fault_injected, "build_required": not bool(task.invalid_proto),
             "checkpoint_restarts": checkpoint_restarts, "dialogue": dialogue,
+            "retrieval_trace": result.get("retrieval_trace", {}), "retrieval_mode": retrieval_mode,
+            "constraint_ir": [endpoint.model_dump(mode="json") for endpoint in result["draft_spec"].endpoints] if result.get("draft_spec") else [],
+            "constraint_tags": sorted(constraint_tags(result["draft_spec"])) if result.get("draft_spec") else [],
+            "ir_corrections": result.get("ir_corrections", []),
             "repair_history": result.get("repair_history", [])}
 
 
@@ -318,11 +335,14 @@ def main():
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--skip-behavior", action="store_true", help="Report compile-only results")
     parser.add_argument("--profile", choices=["full", "simplified"], default="full")
+    parser.add_argument("--retrieval-mode", choices=sorted(HybridExampleSelector.MODES), default="legacy")
     parser.add_argument("--split", choices=["all", "development", "acceptance"], default="all")
     parser.add_argument("--model", default="gpt-4.1-mini-2025-04-14")
     args = parser.parse_args()
     if args.repeats < 1:
         parser.error("--repeats must be at least 1")
+    if args.profile == "simplified" and args.retrieval_mode != "legacy":
+        parser.error("Retrieval ablation uses the full profile; simplified disables retrieval.")
     dataset_bytes = args.dataset.read_bytes()
     source_root = Path(__file__).parents[1]
     digest = hashlib.sha256()
@@ -343,7 +363,7 @@ def main():
     results = []
     revision = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
     metadata = {"revision": revision, "python": platform.python_version(), "mode": "live" if args.live else "replay",
-                "profile": args.profile, "split": args.split, "model": args.model, "behavior_enabled": not args.skip_behavior,
+                "profile": args.profile, "retrieval_mode": args.retrieval_mode, "split": args.split, "model": args.model, "behavior_enabled": not args.skip_behavior,
                 "scoring_feedback_to_model": False, "benchmark_version": manifest["version"] if manifest else None,
                 "dataset_sha256": hashlib.sha256(dataset_bytes).hexdigest(), "repeats": args.repeats,
                 "source_sha256": source_sha256,
@@ -363,7 +383,7 @@ def main():
             print(f"Running {task.id} (repeat {repeat + 1})", flush=True)
             result = run_task(task, live=args.live, execute_behavior=not args.skip_behavior,
                               artifacts=args.artifacts / f"run-{repeat + 1}" if args.artifacts else None,
-                              profile=args.profile, model=args.model)
+                              profile=args.profile, model=args.model, retrieval_mode=args.retrieval_mode)
             result["repeat"] = repeat + 1
             results.append(result)
             save_report(False)

@@ -1,0 +1,32 @@
+type StringCmd struct {
+	baseCmd
+
+	val string
+}
+
+var _ Cmder = (*StringCmd)(nil)
+
+func NewStringCmd(ctx context.Context, args ...interface{}) *StringCmd {
+	return &StringCmd{
+		baseCmd: baseCmd{
+			ctx:  ctx,
+			args: args,
+		},
+	}
+}
+
+func (cmd *StringCmd) SetVal(val string) {
+	cmd.val = val
+}
+
+func (cmd *StringCmd) Val() string {
+	return cmd.val
+}
+
+func (cmd *StringCmd) Result() (string, error) {
+	return cmd.Val(), cmd.err
+}
+
+func (cmd *StringCmd) Bytes() ([]byte, error) {
+	return util.StringToBytes(cmd.val), cmd.err
+}

@@ -1,0 +1,8 @@
+{
+  "dataset_sha256": "3711215adc17914f2b8f68d377d1efbee053b92098f6f3b2d22cdc2bc5d900d6",
+  "task_count": 6,
+  "purpose": "Locked before Agent generation; no task-specific corpus or generation-prompt tuning permitted. Private setup and oracles never enter generation context.",
+  "source_scope": "Official pinned knowledge only; manual platform probe excluded.",
+  "previous_windows_byte_sha256": "441ca5d874056d2952b71757e7f4aab183b826422a9c22128722081cd892a038",
+  "normalization_note": "Only CRLF to LF normalization; task objects and private assertions unchanged."
+}

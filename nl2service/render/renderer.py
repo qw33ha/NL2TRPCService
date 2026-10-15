@@ -46,6 +46,8 @@ class ServiceRenderer:
         return self._load_proto_contract(spec)
 
     def render_tree(self, spec: ServiceSpec) -> dict[str, str]:
+        if spec.redis.enabled:
+            raise ProtoContractError('Redis requires the opt-in official-redis RPC generation path; legacy templates do not bind a Redis client.')
         trpc_enabled = bool(spec.service.enable_trpc)
         http_enabled = bool(spec.service.enable_http)
         contract = self._load_proto_contract(spec) if trpc_enabled else None
@@ -99,12 +101,26 @@ class ServiceRenderer:
             files["k8s/service-lb.yaml"] = self._render("k8s/service-lb.yaml.j2", {"spec": spec})
         return files
 
-    def write_tree(self, files: dict[str, str], out_dir: Path) -> None:
+    def write_tree(self, files: dict[str, str], out_dir: Path, previous_files: dict[str, str] | None = None) -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
+        if previous_files is not None:
+            for relative_path, content in files.items():
+                destination = safe_destination(out_dir, relative_path)
+                if relative_path not in previous_files and destination.exists() and (
+                    not destination.is_file() or destination.read_text(encoding="utf-8") != content
+                ):
+                    raise FileExistsError(f"Refusing to overwrite an unmanaged generated-file target: {relative_path}")
         for relative_path, content in files.items():
             destination = safe_destination(out_dir, relative_path)
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text(content, encoding="utf-8")
+        for relative_path, old_content in (previous_files or {}).items():
+            if relative_path not in files:
+                destination = safe_destination(out_dir, relative_path)
+                # Remove only an unchanged file known to be generated before.
+                # User-modified files and untracked files remain untouched.
+                if destination.is_file() and destination.read_text(encoding="utf-8") == old_content:
+                    destination.unlink()
 
     def _render(self, template_name: str, context: dict[str, Any]) -> str:
         template = self.env.get_template(template_name)

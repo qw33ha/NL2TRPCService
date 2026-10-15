@@ -15,6 +15,7 @@ from nl2service.tools.github_tool import GitHubApiProvider, GitHubProvider
 from nl2service.workflow.conversation_graph import ConversationalServiceWorkflow
 from nl2service.workflow.core import WorkflowCore
 from nl2service.workflow.state import WorkflowState, structured_state_defaults
+from nl2service.workflow.updates import apply_field_updates
 
 
 class AgentSession:
@@ -185,6 +186,9 @@ class AgentSession:
                             value = update.value_json
                         updates[update.field] = self.clarification_interpreter._normalize(update.field, value)
                     if updates:
+                        invalid = self._invalid_updates((state or {}).get("draft_spec"), updates)
+                        if invalid:
+                            return invalid
                         return {"field_updates": updates, "raw_answer": text}
                 if decision.intent == "answer" and decision.answer_json is not None:
                     try:
@@ -255,6 +259,9 @@ class AgentSession:
                             value = update.value_json
                         updates[update.field] = self.clarification_interpreter._normalize(update.field, value)
                     if updates:
+                        invalid = self._invalid_updates((state or {}).get("draft_spec"), updates)
+                        if invalid:
+                            return invalid
                         return {"field_updates": updates}
                     return AgentEvent("question", decision.response or "What should I change before proceeding?")
                 elif decision.intent == "answer" and decision.answer_json is not None:
@@ -298,6 +305,19 @@ class AgentSession:
             "clarification_history": list(state.get("clarification_history", []))[-20:],
             "agent_notes": list(state.get("agent_notes", []))[-10:],
         }
+
+    @staticmethod
+    def _invalid_updates(spec: Any, updates: dict[str, Any]) -> AgentEvent | None:
+        try:
+            apply_field_updates(spec, updates)
+        except (ValueError, TypeError, AttributeError) as exc:
+            return AgentEvent(
+                "question",
+                "I could not apply that specification change safely. "
+                "Your existing specification is unchanged. Please restate the complete change "
+                "(use /paste for multiple lines). Detail: " + str(exc),
+            )
+        return None
 
     @staticmethod
     def _yes_no(text: str) -> bool | None:

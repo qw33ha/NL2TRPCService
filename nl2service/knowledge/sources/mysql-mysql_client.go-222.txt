@@ -1,0 +1,17 @@
+type (
+	// NextFunc query request, each row of data records to execute the logic, required.
+	// Wrapped in the bottom of the framework to prevent the user from missing rows.Close, rows.Err, etc., and
+	// to prevent the context from being cancelled during scan.
+	// Return value error ==nil continue to the next row, ==ErrBreak end the loop early ! =nil return failure.
+	NextFunc func(*sql.Rows) error
+
+	// TxFunc is a user transaction function that returns err ! = nil when
+	// the transaction is automatically rolled back, otherwise the transaction is automatically committed.
+	// TxFunc receives native sql.Tx.
+	TxFunc func(*sql.Tx) error
+
+	// TxxFunc is a user transaction function that returns err ! = nil, otherwise
+	// the transaction is automatically rolled back, otherwise the transaction is automatically committed.
+	// TxxFunc receives sqlx.Tx as an argument, providing more helper methods.
+	TxxFunc func(*sqlx.Tx) error
+)

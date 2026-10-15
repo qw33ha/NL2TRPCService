@@ -1,0 +1,45 @@
+
+var (
+	addrCfg     = make(map[string]*UserConfig)
+	addrCfgLock sync.RWMutex
+)
+
+// RegisterAddrConfig register user-defined information, address is the corresponding address in the configuration file
+func RegisterAddrConfig(address string, cfg *UserConfig) {
+	addrCfgLock.Lock()
+	defer addrCfgLock.Unlock()
+	addrCfg[address] = cfg
+}
+
+// ParseAddress address format ip1:port1,ip2:port2?clientid=xx&topics=topic1,topic2&group=xxx&compression=gzip
+func ParseAddress(address string) (*UserConfig, error) {
+	addrCfgLock.RLock()
+	cfg, ok := addrCfg[address]
+	addrCfgLock.RUnlock() // The purpose of not using defer is to unlock as soon as possible and reduce the scope of locks
+	if ok {
+		return cfg, nil
+	}
+
+	config := GetDefaultConfig()
+	tokens := strings.SplitN(address, "?", 2)
+	if len(tokens) != 2 {
+		return nil, fmt.Errorf("address format invalid: address: %v, tokens: %v", address, tokens)
+	}
+
+	config.Brokers = strings.Split(tokens[0], ",")
+	values, err := url.ParseQuery(tokens[1])
+	if err != nil {
+		return nil, fmt.Errorf("address format invalid: brokers: %v, params: %v, err: %w",
+			config.Brokers, tokens[1], err)
+	}
+
+	configParsers := newConfigParsers()
+	for key := range values {
+		value := values.Get(key)
+		if value == "" {
+			return nil, fmt.Errorf("address format invalid, key: %v, value is empty", key)
+		}
+
+		// find parser by  key
+		f := configParsers[key]
+		if f == nil {
