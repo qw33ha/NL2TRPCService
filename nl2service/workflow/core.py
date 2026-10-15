@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 
 from nl2service.agent.ambiguity import AmbiguityAnalyzer
 from nl2service.agent.context_builder import build_main_agent_session
@@ -14,6 +15,7 @@ from nl2service.tools.github_tool import GitHubAPIError, GitHubApiProvider, GitH
 from nl2service.workflow.clarify import ClarificationSessionBuilder
 from nl2service.workflow.gate import GateSummaryBuilder
 from nl2service.workflow.examples import ExampleSelector
+from nl2service.workflow.retrieval import HybridExampleSelector
 from nl2service.workflow.nodes.delivery import GitHubActionsNodes
 from nl2service.workflow.state import (
     WorkflowState,
@@ -36,6 +38,7 @@ class WorkflowCore:
         github_provider: GitHubProvider | None = None,
     ) -> None:
         self.model = model
+        self.contract_review_enabled = os.getenv("NL2SERVICE_CONTRACT_REVIEW") == "1"
         self.provider = provider or LLMProvider()
         self.github_provider = github_provider or GitHubApiProvider()
         self.github_actions = GitHubActionsNodes(self.github_provider, MAX_REPAIR_ATTEMPTS)
@@ -43,7 +46,18 @@ class WorkflowCore:
         self.clarifier = ClarificationSessionBuilder(self.validator)
         self.gate_builder = GateSummaryBuilder()
         self.renderer = ServiceRenderer()
-        self.example_selector = ExampleSelector()
+        if os.getenv("NL2SERVICE_GENERATION_MODE") == "official-mysql":
+            from nl2service.render.official_mysql import OfficialMySQLRenderer
+            self.renderer = OfficialMySQLRenderer()
+        if os.getenv("NL2SERVICE_GENERATION_MODE") in {"official-redis","official-kafka"}:
+            from nl2service.render.official_backends import OfficialBackendRenderer
+            self.renderer=OfficialBackendRenderer(os.environ["NL2SERVICE_GENERATION_MODE"].removeprefix("official-"))
+        retrieval_mode = os.getenv("NL2SERVICE_RETRIEVAL_MODE", "official-rag" if os.getenv("NL2SERVICE_GENERATION_MODE","").startswith("official-") else "legacy")
+        if retrieval_mode.startswith("official-"):
+            from nl2service.knowledge.official import OfficialKnowledgeSelector
+            self.example_selector = OfficialKnowledgeSelector(mode=retrieval_mode)
+        else:
+            self.example_selector = ExampleSelector() if retrieval_mode == "legacy" else HybridExampleSelector(mode=retrieval_mode)
         self.ambiguity_analyzer = AmbiguityAnalyzer(self.provider, model)
         self.verifier = GoBuildVerifier()
         self.deterministic_go_repair = DeterministicGoRepair()
@@ -88,6 +102,10 @@ class WorkflowCore:
             state["error"] = f"The provided .proto file could not be rendered: {exc}"
             return state
         state["rendered_files"] = rendered
+        state["generation_contract"] = getattr(self.renderer,"generation_contract",None)
+        state["contract_review_required"] = self.contract_review_enabled
+        state["contract_review_complete"] = False
+        state["code_repair_calls"] = 0
         state["verification_attempts"] = 0
         state["build_feedback"] = None
         output_dir = state.get("output_dir")
@@ -103,7 +121,16 @@ class WorkflowCore:
             state["status"] = "error"
             state["error"] = "No draft spec available for example selection."
             return state
-        bundle = self.example_selector.select(spec)
+        from nl2service.knowledge.official import OfficialKnowledgeSelector
+        if isinstance(self.example_selector, (HybridExampleSelector, OfficialKnowledgeSelector)):
+            try:
+                bundle = self.example_selector.select(spec, state.get("user_request", ""))
+            except Exception as exc:
+                state.update(status="error", error=f"Retrieval failed ({type(exc).__name__}); no silent fallback.")
+                return state
+            state["retrieval_trace"] = self.example_selector.trace
+        else:
+            bundle = self.example_selector.select(spec)
         state["selected_examples"] = bundle.examples
         state["example_reference_files"] = bundle.files
         state["status"] = "examples_selected"
@@ -125,6 +152,8 @@ class WorkflowCore:
             return state
         state["agent_notes"] = ["Main agent refined the rendered scaffold using the current spec and references."]
         state["rendered_files"] = result.files
+        for path in getattr(self.renderer, "immutable_paths", ()):
+            state["rendered_files"][path] = session.rendered_files[path]
         state["refinement_notes"] = result.notes
         output_dir = state.get("output_dir")
         if output_dir:
@@ -178,7 +207,7 @@ class WorkflowCore:
             ]
             output_dir = state.get("output_dir")
             if output_dir:
-                self.renderer.write_tree(deterministic.files, Path(output_dir))
+                self.renderer.write_tree(deterministic.files, Path(output_dir), previous_files=rendered_files)
             state["status"] = "deterministic_repair_applied"
             state["error"] = None
             return state
@@ -219,8 +248,9 @@ class WorkflowCore:
         if feedback:
             repair_context.append(feedback)
 
+        previous_generated_files = dict(state.get("rendered_files", {}))
         deterministic = self.deterministic_go_repair.apply(
-            dict(state.get("rendered_files", {})),
+            previous_generated_files,
             feedback or "",
         )
         if deterministic.changed:
@@ -231,7 +261,7 @@ class WorkflowCore:
             ]
             output_dir = state.get("output_dir")
             if output_dir:
-                self.renderer.write_tree(deterministic.files, Path(output_dir))
+                self.renderer.write_tree(deterministic.files, Path(output_dir), previous_files=previous_generated_files)
             state["status"] = "repaired_from_build_feedback"
             state["error"] = None
             return state
@@ -242,6 +272,12 @@ class WorkflowCore:
             repair_feedback=feedback,
         )
         previous_files = dict(state.get("rendered_files", {}))
+        if state.get("contract_review_required") and (not failure or failure.get("source") in {"local_build", "public_contract_review"}):
+            calls = int(state.get("code_repair_calls", 0))
+            if calls >= MAX_REPAIR_ATTEMPTS:
+                state.update(status="error", error="Shared compiler/contract repair budget exhausted.")
+                return state
+            state["code_repair_calls"] = calls + 1
         try:
             result = MainLLMAgent(model=state.get("model"), provider=self.provider).refine_code(session)
         except MainAgentError as exc:
@@ -250,6 +286,8 @@ class WorkflowCore:
             return state
 
         state["agent_notes"] = ["Main agent applied build feedback to repair generated files."]
+        for path in getattr(self.renderer, "immutable_paths", ()):
+            result.files[path] = previous_files[path]
         notes = list(result.notes)
         source = failure.get("source", "local_build") if failure else "local_build"
         stage = failure.get("stage", "local_build") if failure else "local_build"
@@ -285,6 +323,31 @@ class WorkflowCore:
             self.renderer.write_tree(result.files, Path(output_dir))
         state["status"] = "repaired_from_build_feedback"
         state["error"] = None
+        return state
+
+    def _public_contract_review_node(self, state: WorkflowState) -> WorkflowState:
+        from nl2service.agent.contract_review import review_contract
+        was_verified = state.get("status") == "verified"
+        session = build_main_agent_session(state, repair_feedback=None if was_verified else state.get("build_feedback"))
+        try:
+            from nl2service.agent.main_agent import DEFAULT_MAIN_AGENT_MODEL
+            result = review_contract(session, self.provider, state.get("model") or self.model or DEFAULT_MAIN_AGENT_MODEL)
+        except Exception as exc:
+            state.update(status="error", error=f"Public contract review failed ({type(exc).__name__}); no silent approval.")
+            return state
+        state["contract_review_complete"] = True
+        state["contract_review"] = result.model_dump()
+        if not result.findings:
+            if was_verified:
+                state.update(status="verified", error=None)
+            else:
+                state.update(status="error", error="Contract review did not resolve the failed compiler verification.")
+            return state
+        import json
+        feedback = "Public-contract review findings (advisory; no private test feedback):\n" + json.dumps(result.model_dump())
+        state["active_failure"] = {"source": "public_contract_review", "stage": "public_spec", "command": None,
+                                   "exit_code": None, "logs": feedback, "run_id": None, "commit_sha": None}
+        state.update(status="contract_review_requested", build_feedback=feedback, error=None)
         return state
 
     def _deliver_to_github_node(self, state: WorkflowState) -> WorkflowState:

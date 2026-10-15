@@ -31,6 +31,14 @@ class WorkflowState(TypedDict):
     github_delivery: dict[str, Any]
     selected_examples: list[str]
     example_reference_files: dict[str, str]
+    retrieval_trace: NotRequired[dict[str, Any]]
+    ir_corrections: NotRequired[list[dict[str, Any]]]
+    user_updated_fields: NotRequired[list[str]]
+    contract_review_required: NotRequired[bool]
+    contract_review_complete: NotRequired[bool]
+    contract_review: NotRequired[dict[str, Any]]
+    code_repair_calls: NotRequired[int]
+    generation_contract: NotRequired[dict | None]
     local_build: "BuildState"
     active_failure: "FailureState | None"
     repair_history: list["RepairRecord"]
@@ -50,7 +58,7 @@ class BuildState(TypedDict):
 
 
 class FailureState(TypedDict):
-    source: Literal["local_build", "github_ci", "deployment"]
+    source: Literal["local_build", "github_ci", "deployment", "public_contract_review"]
     stage: str
     command: str | None
     exit_code: int | None

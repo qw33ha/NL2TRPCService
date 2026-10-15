@@ -1,0 +1,6 @@
+func (c cmdable) Del(ctx context.Context, keys ...string) *IntCmd {
+	args := make([]interface{}, 1+len(keys))
+	args[0] = "del"
+	for i, key := range keys {
+		args[1+i] = key
+	}

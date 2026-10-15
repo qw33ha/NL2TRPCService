@@ -1,0 +1,22 @@
+func generateTRPCError(err error) error {
+	if _, ok := err.(*errs.Error); ok || err == nil {
+		return err
+	}
+
+	switch err {
+	case sql.ErrNoRows:
+		return ErrNoRows
+	case context.Canceled:
+		return errs.NewFrameError(errs.RetClientCanceled, err.Error())
+	case context.DeadlineExceeded:
+		return errs.NewFrameError(errs.RetClientTimeout, err.Error())
+	default:
+	}
+
+	var mySQLError *mysql.MySQLError
+	if errors.As(err, &mySQLError) {
+		return errs.New(int(mySQLError.Number), mySQLError.Message)
+	}
+
+	return errs.NewFrameError(errs.RetClientNetErr, err.Error())
+}

@@ -1,0 +1,50 @@
+}
+
+func (h *singleConsumerHandler) retryConsumeAndMark(
+	session sarama.ConsumerGroupSession,
+	m *sarama.ConsumerMessage,
+	claim sarama.ConsumerGroupClaim,
+) {
+	retryNum := 0
+	for {
+		ctx, trpcMsg := genTRPCMessage(m, h.opts.ServiceName, m.Topic, h.trpcMeta)
+		ctx = withRawSaramaContext(ctx, &RawSaramaContext{Session: session, Claim: claim})
+		// Hand it over to the trpc framework
+		_, err := h.opts.Handler.Handle(ctx, nil)
+		rspErr := trpcMsg.ServerRspErr()
+		// If the consumption does not fail, jump out of the loop, mark message and continue to consume subsequent data
+		if err == nil && rspErr == nil {
+			break
+		}
+
+		// error handling logic
+		msgInfo := fmt.Sprintf("%s:%d:%d", m.Topic, m.Partition, m.Offset)
+		// If it is IsCWCError return directly, do not submit
+		if IsCWCError(rspErr) {
+			log.WarnContextf(ctx, "kafka consumer handle warn:%v, msg: %+v", rspErr, msgInfo)
+			return
+		}
+
+		// If processing fails, write error log, number of retries +1
+		retryNum++
+		log.ErrorContextf(ctx, "kafka consumer msg %s try time %d get fail:%v rspErr:%v, ", msgInfo, retryNum, err, rspErr)
+
+		// If the maximum number of retries is exceeded,
+		// end the loop mark message and continue to consume subsequent data
+		if h.retryMax != 0 && retryNum > h.retryMax {
+			break
+		}
+
+		// If you need to retry, wait for a while and execute again
+		t := time.NewTimer(h.retryInterval)
+		select {
+		case <-h.ctx.Done():
+			return
+		case <-session.Context().Done():
+			return
+		case <-t.C:
+			// retry
+		}
+	}
+	session.MarkMessage(m, "")
+}

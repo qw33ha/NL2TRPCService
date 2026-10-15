@@ -1,0 +1,6 @@
+{
+  "checked_date": "2026-10-14",
+  "basis": "OpenAI standard synchronous API public list prices, USD per million tokens; estimates only, not account invoices or custom-provider prices",
+  "gpt-4.1-2025-04-14": {"input": 2.0, "cached_input": 0.5, "output": 8.0, "source": "https://developers.openai.com/api/docs/models/gpt-4.1"},
+  "text-embedding-3-small": {"input": 0.02, "source": "https://developers.openai.com/api/docs/models/text-embedding-3-small"}
+}

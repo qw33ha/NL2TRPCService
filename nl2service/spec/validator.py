@@ -30,6 +30,8 @@ class ServiceSpecValidator:
         self._validate_exposure(spec, result)
         self._validate_kafka(spec, result)
         self._validate_database(spec, result)
+        if spec.redis.enabled and not spec.redis.address:
+            result.issues.append(ValidationIssue('redis.address','Redis backend address is required.'))
         self._validate_policy(spec, result)
         return result
 
@@ -71,8 +73,25 @@ class ServiceSpecValidator:
                 )
 
     def _validate_endpoints(self, spec: ServiceSpec, result: ValidationResult) -> None:
-        if not spec.endpoints:
+        if spec.service.enable_http and not spec.endpoints:
             result.issues.append(ValidationIssue("endpoints", "At least one endpoint is required."))
+        seen = set()
+        for index, endpoint in enumerate(spec.endpoints):
+            prefix = f"endpoints.{index}"
+            key = (endpoint.method, endpoint.path)
+            if key in seen:
+                result.issues.append(ValidationIssue(f"{prefix}.path", "Duplicate HTTP method/path."))
+            seen.add(key)
+            names = set()
+            for number, item in enumerate(endpoint.input_fields):
+                field = f"{prefix}.input_fields.{number}"
+                if item.name in names:
+                    result.issues.append(ValidationIssue(f"{field}.name", "Duplicate input field name."))
+                names.add(item.name)
+                if item.minimum is not None and item.maximum is not None and item.minimum > item.maximum:
+                    result.issues.append(ValidationIssue(f"{field}.minimum", "Minimum exceeds maximum."))
+                if item.type not in {"integer", "number"} and (item.minimum is not None or item.maximum is not None):
+                    result.issues.append(ValidationIssue(f"{field}.type", "Numeric bounds require a numeric field type."))
 
     def _validate_repo(self, spec: ServiceSpec, result: ValidationResult) -> None:
         if not spec.repo.owner:
@@ -150,7 +169,7 @@ class ServiceSpecValidator:
             result.issues.append(ValidationIssue("kafka.topic", "Kafka topic is required when Kafka is enabled."))
         if not kafka.group:
             result.issues.append(ValidationIssue("kafka.group", "Kafka consumer group is required when Kafka is enabled."))
-        if not kafka.ca_file:
+        if kafka.tls is not False and not kafka.ca_file:
             result.issues.append(
                 ValidationIssue("kafka.ca_file", "The TLS Kafka CA certificate file is required.")
             )

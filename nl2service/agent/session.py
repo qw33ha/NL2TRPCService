@@ -21,3 +21,4 @@ class MainAgentSessionState:
     rendered_files: dict[str, str] = field(default_factory=dict)
     reference_files: dict[str, str] = field(default_factory=dict)
     repair_feedback: str | None = None
+    generation_contract: dict | None = None

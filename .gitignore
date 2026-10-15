@@ -46,3 +46,9 @@ dummy/
 evaluation-report*.json
 evaluation-report*.txt
 evaluation-artifacts/
+
+# Local generation and evaluation artifacts
+.local-demo/
+generated/
+demo-output/
+docs/

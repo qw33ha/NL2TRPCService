@@ -1,305 +1,154 @@
 # NL2Service
 
-NL2Service is a conversational agent that turns a natural-language backend request into a
-build-verified Go service and can deliver it through GitHub Actions to Kubernetes.
+**A conversational agent that turns backend requirements into build-verified Go services.**
 
-It combines LLM-driven requirement understanding and code refinement with deterministic
-templates, validation, local Go verification, persistent LangGraph checkpoints, and CI/CD
-feedback. Generated services use open-source components from the public
-[tRPC-Go](https://github.com/trpc-group/trpc-go) ecosystem.
+Describe a service, answer the Agent's questions, and review the generated project.
+NL2Service uses LangGraph to manage the conversation, retrieves implementation references,
+and feeds local build and CI diagnostics into a bounded repair loop. Generated services use
+[tRPC-Go](https://github.com/trpc-group/trpc-go), with optional GitHub Actions delivery.
 
-## What it automates
+[Quick demo](#quick-demo) · [Architecture](#how-it-works) · [Quick start](#quick-start) · [Evaluation](#evaluation-highlights)
 
-From one interactive conversation, NL2Service can:
+## Quick demo
 
-1. Understand the requested API and integrations.
-2. Ask about material missing details and accept corrections at any point.
-3. Build a typed service specification while retaining open-ended requirements as conversation
-   context.
-4. Select relevant verified examples as generation references.
-5. Render and refine a complete Go project.
-6. Run `go mod tidy`, `go vet`, and a local build.
-7. Repair generated code using build feedback.
-8. Commit the verified project directly to GitHub after confirmation.
-9. Monitor GitHub Actions as it builds and publishes the container image.
-10. Feed CI/CD failures back into the repair loop or return a deployment report on success.
+This session asks for an HTTP order intake service backed by MySQL and Kafka.
+The Agent clarifies configuration, item validation and duplicate-order handling,
+then generates and locally builds a new Go project.
 
-The generated project can include HTTP and tRPC handlers, MySQL or PostgreSQL access, Kafka
-producers and consumers, Docker packaging, Kubernetes manifests, and a GitHub Actions workflow.
+**1. Describe the service and fill in missing configuration.**
 
-## Proven end-to-end
+![Natural-language request and configuration questions](assets/01-requirements.png)
 
-[simpleService](https://github.com/qw33ha/simpleService) was automatically implemented and
-delivered by NL2Service from a natural-language request. The generated service:
+**2. Clarify business rules before generation.**
 
-- accepts JSON over HTTP;
-- publishes events to Kafka;
-- conditionally writes data to MySQL;
-- builds and packages successfully in GitHub Actions; and
-- deploys to Google Kubernetes Engine.
+The conversation specifies integer-cent pricing, globally unique order IDs,
+HTTP 409 for conflicting retries, and explicit Kafka failure handling.
 
-This demonstrates the complete path from conversation to a running cloud service—not only code
-generation.
+![Business-rule clarification and requirement updates](assets/02-business-rules.png)
 
-## Core architecture
+**3. Approve generation and reach a verified local build.**
 
-NL2Service has four main parts:
+![Generation approval and successful local build](assets/03-build-passed.png)
 
-1. **Conversation and orchestration** — A LangGraph workflow keeps the conversation, asks for
-   missing information, accepts corrections, requests approval, and resumes long-running work
-   from SQLite checkpoints.
-2. **Requirements** — Pydantic stores the stable generation and deployment settings. Business
-   rules and unexpected answers remain in conversation history, so the agent is not limited to a
-   fixed form.
-3. **Generation and verification** — Jinja templates create the predictable tRPC-Go structure;
-   the LLM adapts the business logic. The Go toolchain then verifies the result and returns build
-   failures to the agent for repair.
-4. **Delivery** — After approval, NL2Service commits the verified project to GitHub. GitHub
-   Actions builds the container and optionally deploys it to Kubernetes. Remote failures return
-   to the same repair workflow.
+These are unedited screenshots of the live CLI session; responses were entered by
+an assistant through process stdin. This session reached local build success after
+compiler feedback and repair, and stops at the separate GitHub delivery gate.
+It does not demonstrate runtime correctness or remote delivery of this order service.
 
-This creates a clear boundary: the LLM handles meaning and implementation choices, while normal
-code controls validation, state transitions, file generation, builds, and external operations.
+**CI/CD Actions:** [simpleService](https://github.com/qw33ha/simpleService) ·
+[GitHub Actions runs](https://github.com/qw33ha/simpleService/actions)
 
-```mermaid
-flowchart LR
-    Conversation[Conversation] --> Requirements[Spec and context]
-    Requirements --> Generation[Templates and LLM]
-    Generation --> Verification[Go verification]
-    Verification -->|repair| Generation
-    Verification -->|approved| Delivery[GitHub Actions and Kubernetes]
-    Delivery -->|failure feedback| Generation
-```
+## How it works
 
-## Installation
+| Component | What it contributes |
+|---|---|
+| Stateful orchestration | LangGraph interrupts for questions and approvals; SQLite checkpoints for resuming conversations. |
+| Typed requirements | Pydantic specifications plus conversation context for business rules and later corrections. |
+| IR-aware RAG | BM25 and dense retrieval, reciprocal rank fusion, compatibility reranking and capability/dependency closure. |
+| Generation | Agent-authored business logic with deterministic scaffolding and verification. Opt-in official backend modes also protect transport wiring and pinned dependency configuration. |
+| Verification and repair | Go tidy/vet/test/build checks and a bounded repair loop for local build and CI failures. CI diagnostics drive code fixes, local revalidation, a new commit and monitoring of its Actions run. |
+| Delivery | Separate approval for repository submission; commit-specific Actions monitoring and optional Kubernetes deployment. |
 
-Requirements:
+Retrieval and backend generation modes are opt-in. The default HTTP workflow uses
+example references; official backend modes retrieve version-pinned API, type and
+configuration evidence. The two paths have different supported contracts.
 
-- Python 3.11 or newer
-- Go toolchain for local verification
-- An OpenAI API key
-- Git and a GitHub token when repository delivery is requested
+## Quick start
+
+Requires Python 3.11+, Go and an OpenAI API key. Local checks were exercised with
+Go 1.25 on Windows. Docker is needed for disposable backend integration tests,
+not for talking to the Agent or generating code.
 
 ```bash
 git clone https://github.com/qw33ha/NL2TRPCService.git
 cd NL2TRPCService
 python -m venv .venv
-source .venv/bin/activate
-pip install -e .
 ```
 
-Configure the agent:
+Activate with `source .venv/bin/activate` on macOS/Linux, or
+`.\.venv\Scripts\Activate.ps1` in Windows PowerShell. Then install:
 
 ```bash
-export OPENAI_API_KEY="..."
-export GITHUB_TOKEN="..."                # required only for GitHub delivery
-export NL2SERVICE_OPENAI_MODEL="gpt-4.1-mini"  # optional
+pip install -e ".[dev]"
 ```
 
-`OPENAI_BASE_URL`, `OPENAI_ORG_ID`, and `OPENAI_PROJECT_ID` are also supported when needed.
-
-## Usage
-
-Start with a natural-language request:
+Set `OPENAI_API_KEY` in your terminal environment, then start a conversation:
 
 ```bash
-nl2service "Build an HTTP service that accepts JSON, publishes it to Kafka, and stores selected fields in MySQL when env is prod"
+python -m nl2service.cli --model gpt-4.1-2025-04-14
 ```
 
-The agent continues in the same terminal, asking only for information needed to generate or
-deploy the service. A conversation is durably checkpointed in `~/.nl2service/agent.db`.
+For example:
 
-If the session is interrupted, resume it using the printed thread ID:
+> Build an HTTP order intake service. Validate orders, calculate totals, store them
+> in MySQL and publish OrderCreated events to Kafka. Prevent duplicate orders.
+
+Answer the questions with your actual configuration. For a multiline answer, enter
+`/paste`, paste the content, then enter `/end` on its own line. Review the proposal
+before approving generation. Projects are written to `generated/<thread-id>/`.
+
+Resume an interrupted session using its printed conversation ID:
 
 ```bash
-nl2service --thread <thread-id>
+python -m nl2service.cli --thread <thread-id>
 ```
 
-You can ask questions, correct a previous value, reject a proposal and revise it, or explicitly
-stop the conversation. Approval is required before code delivery.
+GitHub delivery requires a token with access to the destination repository and
+permission to write contents/workflows and read Actions. Publishing uses the generated
+workflow's package permissions. Backend services, database schema and runtime credentials
+must be prepared before starting the generated application. Kubernetes is optional.
 
-## One-time deployment preparation
+## Evaluation highlights
 
-NL2Service generates and operates the application delivery workflow, but it does not silently
-create or take ownership of cloud infrastructure. For Kubernetes deployment, prepare:
+The harness combines executable service tests, retrieval diagnostics, blinded
+LLM-as-a-Judge scoring and real GitHub Actions repair. Behavioral test answers stay
+outside generation and repair.
 
-- a reachable Kubernetes cluster and namespace;
-- a cloud service account with appropriately scoped cluster permissions;
-- GitHub-to-cloud authentication, preferably workload identity federation;
-- repository secrets or variables identifying the cloud project, cluster, and region;
-- permission for GitHub Actions to publish container images;
-- Kubernetes Secrets for runtime database or Kafka credentials;
-- network access from the workload to external dependencies; and
-- required database tables and Kafka topics.
+| Area | Highlight | Test scope |
+|---|---|---|
+| Compiler repair | **3/3 recovered**, versus 0/3 with model repair disabled | Declared compiler fault, three repeats in the original workflow ablation |
+| Real CI repair | **1/1 recovered**; remote Go checks and Docker build passed | Injected fault on an isolated simpleService branch; two model repair calls, no deployment |
+| CI/CD orchestration | **9/9 scenarios passed** | Isolated delivery graph tests, including failure detection, resume, repair/recommit and timeout |
+| IR-aware retrieval | **100% Precision@3**; **93.9% constraint-tag coverage** | Six development queries over 22 chunks; coverage measured on reached queries with nonempty tags |
+| RAG efficiency | **20.8% fewer input tokens**, **18.4% lower estimated API cost** | Versus full context on two Redis/Kafka development tasks, one run per mode; cost includes embeddings |
+| HTTP generation | **8/8 tasks**, **7/7 builds**, **28/28 HTTP assertions** | Final IR regression, per retrieval mode; known development tasks |
+| MySQL behavior | **6/6 tasks**, **28/28 checks** | Official-RAG development suite covering transactions and backend failures |
+| Redis / Kafka behavior | **9/9 Redis checks**, **5/5 Kafka checks** | Per reference mode; real backends, expiration, publishing/consumption and failure handling |
 
-The agent asks for the relevant non-secret identifiers and generates matching workflow and
-Kubernetes files. Passwords, tokens, private keys, and kubeconfig content belong in GitHub or
-Kubernetes secret storage, never in prompts or generated source code.
+**Blinded LLM-as-a-Judge** evaluated 16 saved planning outputs twice each
+(32 judgments), with profile labels and executable results hidden:
 
-Deployment is optional. If no Kubernetes environment is available, NL2Service can stop after the
-verified build and GitHub delivery stages.
+| Mean score, out of 4 | Full workflow | Simplified |
+|---|---:|---:|
+| Requirement alignment | **3.75** | 3.00 |
+| Clarification quality | **3.69** | 3.63 |
+| Specification consistency | **3.81** | 2.69 |
 
-## Included reference services
+Repeated pass/fail agreement was **87.5% (14/16)**. Scores assess planning semantics,
+not executable correctness; human alignment was not measured.
 
-The `examples/` directory provides verified patterns used as a generation knowledge base:
+These are selected results from small, version-specific experiments, not production
+success estimates. Cost reductions use the recorded price snapshot and are specific
+to the two-task comparison.
 
-- `minimal-trpc-http-echo` — tRPC and HTTP service structure
-- `minimal-trpc-mysql-user` — MySQL CRUD integration
-- `minimal-trpc-kafka-event` — authenticated Kafka publishing and consumption
+Run the local regression suite:
 
-The examples and generated templates rely on public GitHub dependencies. Provider credentials
-and private infrastructure details are intentionally excluded.
-
-## Project structure
-
-```text
-nl2service/agent/       conversation routing, ambiguity analysis, and code refinement
-nl2service/spec/        typed specification, normalization, and validation
-nl2service/render/      Jinja templates and artifact rendering
-nl2service/build/       local Go verification
-nl2service/tools/       GitHub, Actions, and Kubernetes operations
-nl2service/workflow/    LangGraph workflow, repair loop, and delivery state
-nl2service/runtime/     durable checkpoints and CI monitoring
-examples/               verified tRPC-Go integration references
+```bash
+python -m pytest -q
 ```
 
-## Evaluation harness
+## Current scope
 
-The frozen v2 benchmark contains eight tasks: six development tasks and two acceptance tasks.
-It retains HTTP generation and clarification coverage, and adds input boundaries, checkpoint
-resume with a requirement update, a declared compiler fault, business rules and invalid protocol
-rejection. The manifest pins the dataset digest, model snapshot and three repeats.
-
-Run both profiles and compare their complete reports:
-
-```powershell
-.venv/Scripts/python.exe -m nl2service.evaluation --live --profile full --repeats 3 --report evaluation-report-v2-full.json --artifacts evaluation-artifacts-full
-.venv/Scripts/python.exe -m nl2service.evaluation --live --profile simplified --repeats 3 --report evaluation-report-v2-simplified.json --artifacts evaluation-artifacts-simplified
-.venv/Scripts/python.exe -m nl2service.evaluation.compare --full evaluation-report-v2-full.json --simplified evaluation-report-v2-simplified.json --output evaluation-comparison.json
-```
-
-Both profiles use the real production LangGraph, isolated SQLite checkpoints, the same model,
-scaffold, scripted answers, schema clarification and deterministic repairs. The simplified profile
-removes ambiguity-model calls, example retrieval and model-driven compiler repair. This is a
-combined ablation; it does not isolate the contribution of each component. GitHub operations
-are blocked and delivery approval is declined. No push or deployment is performed.
-
-Generated projects run real Go tidy/vet/test/build checks. Final black-box scoring starts the
-complete generated service on a loopback port and sends HTTP requests. Scoring assertions and
-behavior failures are never fed into generation or repair. Acceptance results must not be used
-to tune generation within this benchmark version. Missing scripted answers fail closed and are
-reported explicitly; they limit conclusions about the affected task.
-
-Reports include task success, first/final compile success, HTTP assertion success and coverage,
-synthetic-fault recovery, clarification and repair counts, checkpoint restarts, latency and actual
-model/token usage, grouped by task and development/acceptance split. Unreached assertions count
-as failures in the all-requested-case rate. Protocol-only control tasks are excluded from the
-build denominator. Partial reports are saved after every trial; comparison requires complete,
-matching reports. Model credentials are needed only for live runs. Latency from concurrent
-profiles on one machine is descriptive and cannot establish an isolated speed improvement.
-
-The original three-task replay fixture remains available for compile-only CI regression:
-
-```powershell
-.venv/Scripts/python.exe -m nl2service.evaluation --dataset nl2service/evaluation/tasks-v1.jsonl --skip-behavior --report evaluation-report.json
-.venv/Scripts/python.exe -m pytest -q
-```
-
-Replay validates orchestration and scaffolding with known structured outputs; it is not an
-LLM capability baseline. These small fixed benchmarks do not estimate production success rates.
-Token counts are measured; no dollar cost is inferred. The CLI exits nonzero for failed trials.
-
-Workflow metrics separate trigger coverage, repair entry, compile recovery and post-repair
-behavior success. Synthetic and naturally occurring compile failures have separate denominators.
-Clarification, requirement-update and checkpoint tasks retain their final task-success rates.
-Protocol rejection is measured both across planned tasks and conditional on actually reaching
-the protocol interrupt; missing fixture answers remain strict failures and are reported as
-evaluation blocks. No failures means repair effectiveness is unavailable, not 100 percent.
-Build attempts retain diagnostics and exit codes, and results include repair-history changes.
-Regression tests cover successful repair with diagnostic feedback, unchanged repair output,
-bounded retry exhaustion, behavior-only failure, clarification resume, corrected requirements,
-checkpoint recreation, invalid protocol rejection, and blocked external delivery.
-Controlled replay tests validate workflow mechanics; live results provide model evidence.
-
-### LLM-as-a-Judge
-
-```powershell
-.venv/Scripts/python.exe -m nl2service.evaluation.judge --controls --repeats 2 --report judge-controls.json
-.venv/Scripts/python.exe -m nl2service.evaluation.judge --source-report evaluation-report-v2-full.json --artifacts evaluation-artifacts-full --generation-repeat 1 --repeats 2 --report judge-full.json
-```
-
-The independent judge defaults to `gpt-4.1-2025-04-14`, distinct from the generation model.
-It grades semantic planning on anchored 0-4 rubrics: requirement alignment, clarification
-quality and specification consistency. Scores of at least 3 satisfy a dimension. The judge
-sees only the request, dialogue (including later corrections) and actual saved specification.
-Profile labels, model identities, executable test scores and expected HTTP assertions are hidden.
-Judge feedback never enters generation or repair; executable correctness remains separately tested.
-
-Evidence references resolve to numbered immutable excerpts; invented IDs are rejected.
-Structured output validates score bounds and evidence requirements. Missing specifications
-require abstention, not an automatic zero or pass. Repeated judgments report exact-score and
-pass/fail consistency. Reports preserve input/rubric hashes, usage, invalid judgments and
-partial progress. A review CSV has blank human-score columns for later independent annotation.
-
-Five synthetic sanity cases cover aligned/contradictory specifications, redundant clarification,
-missing evidence and an instruction-injection attempt. These check evaluator mechanics and
-obvious rubric distinctions; they are not expert-human calibration. Repeat agreement does not
-establish judge accuracy. No human-alignment claim is made without independently collected labels.
-An offline judge can still be lenient, biased or wrong; inspect its evidence and keep the
-deterministic build/HTTP/CI metrics alongside semantic scores.
-
-### CI/CD evaluation
-
-```powershell
-.venv/Scripts/python.exe -m nl2service.evaluation.cicd --report evaluation-report-cicd.json
-```
-
-Nine isolated scenarios drive the real delivery graph from a locally verified project:
-CI success, wait/resume, failure/repair/recommit/success, repeated failure termination,
-30-check timeout, API denial, deploy-job success, deployment failure and skipped-deploy
-rejection. GitHub commits/runs are in-memory fixtures and the repair response is controlled.
-Local Go verification is real; this suite does not run remote Actions, Docker or a cluster.
-Reports preserve traces, polling counts, checkpoint restarts, commit identities and repair
-diagnostics. Passing a negative scenario means correctly detecting/stopping its failure.
-
-Monitoring requires the exact delivered commit SHA. Cancelled, skipped, neutral or timed-out
-runs do not enter code repair. Deployment success requires a successful deploy job; explicit
-cloud authorization failures stop for external access changes. Each external resume performs
-one poll and persists state before the next interrupt. Deploy-job success alone is not proof
-of service endpoint health; container builds, remote runs and health checks need separate evidence.
-Remote evaluations must use an explicit test repository and an isolated branch with a CI-only
-workflow. The regular baseline never pushes, publishes images or deploys.
-
-An explicitly authorized remote fault/repair experiment can be run with a repository-scoped
-`GITHUB_TOKEN` (Contents and Workflows write, Actions read) and `OPENAI_API_KEY`:
-
-```powershell
-.venv/Scripts/python.exe -m nl2service.evaluation.remote_ci --execute --repository owner/test-repo --branch evaluation/cicd-unique-name --report evaluation-report-remote-ci.json
-```
-
-This opt-in command creates a fresh remote branch, replaces its single workflow with the fixed
-CI-only evaluation workflow, injects a compiler error, reads real Actions diagnostics, invokes
-production repair and local verification, and submits a repaired commit to that branch.
-It evaluates remote build/test and container build; it never publishes an image or deploys.
-It refuses extra/modified workflows, existing evaluation branches and unisolated branch names.
-Interrupted or permission-blocked runs preserve partial reports and must not be called successes.
-
-## Next version
-
-The current milestone proves the complete path from conversation to a deployed service. A
-practical next version would focus on:
-
-- an evaluation suite built from real service requests and known failure cases;
-- stronger generation for services with multiple endpoints, models, and interacting handlers;
-- generated unit and integration tests alongside the service code;
-- additional reusable integrations such as object storage, external REST APIs, and
-  observability;
-- better diagnosis and repair of build, CI, deployment, and configuration failures; and
-- clearer deployment reports with service status, logs, and dependency health.
-
-NL2Service remains an end-to-end prototype rather than a production control plane. Generated code
-and infrastructure permissions should be reviewed before production use.
+- The conversational HTTP path supports MySQL/PostgreSQL and Kafka generation. Generated
+  business behavior needs review and runtime validation for each new request.
+- Opt-in official MySQL, Redis and Kafka slices use a pinned protobuf tRPC contract with
+  domain JSON; they do not support arbitrary protobuf generation or combined HTTP/backend wiring.
+- Redis checks include expiration and service-process restart, not Redis disk durability.
+- Kafka checks exercise real publishing and consumption. A failed publish may still arrive
+  later; exactly-once processing, durable retry and dead-letter handling are not guaranteed.
+- Deployment requires user-provided infrastructure and credentials. This is a service-generation
+  prototype, not a production infrastructure control plane.
 
 ## License
 
-NL2Service is available under the [MIT License](LICENSE).
+[MIT](LICENSE). Bundled third-party source references retain their own license notices.

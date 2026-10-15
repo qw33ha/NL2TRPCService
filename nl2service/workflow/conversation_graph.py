@@ -7,6 +7,7 @@ from langgraph.types import interrupt
 
 from nl2service.render.renderer import ProtoContractError
 from nl2service.workflow.core import WorkflowCore
+from nl2service.agent.ambiguity import apply_grounded_corrections
 from nl2service.workflow.state import WorkflowState, clarification_to_dict
 from nl2service.workflow.updates import apply_field_updates
 
@@ -31,6 +32,7 @@ class ConversationalServiceWorkflow:
         graph.add_node("refine_code", self.core._refine_code_node)
         graph.add_node("verify_build", self.core._verify_build_node)
         graph.add_node("repair", self.core._repair_build_errors_node)
+        graph.add_node("contract_review", self.core._public_contract_review_node)
         graph.add_node("approve_github", self._github_approval_node)
         graph.add_node("deliver_to_github", self.core._deliver_to_github_node)
         graph.add_node("await_github_actions", self._await_github_actions_node)
@@ -55,19 +57,28 @@ class ConversationalServiceWorkflow:
             lambda state: "render_project" if state.get("status") == "proto_ready" else "end",
             {"render_project": "render_project", "end": END},
         )
-        graph.add_edge("render_project", "select_examples")
-        graph.add_edge("select_examples", "refine_code")
-        graph.add_edge("refine_code", "verify_build")
+        graph.add_conditional_edges("render_project", lambda state: "end" if state.get("status") == "error" else "select",
+                                   {"end": END, "select": "select_examples"})
+        graph.add_conditional_edges("select_examples", lambda state: "end" if state.get("status") == "error" else "refine",
+                                   {"end": END, "refine": "refine_code"})
+        graph.add_conditional_edges("refine_code", lambda state: "end" if state.get("status") == "error" else "verify",
+                                   {"end": END, "verify": "verify_build"})
         graph.add_conditional_edges(
             "verify_build",
             self._route_after_build,
             {
                 "repair": "repair",
+                "contract_review": "contract_review",
                 "verify_build": "verify_build",
                 "approve_github": "approve_github",
                 "deliver": "deliver_to_github",
                 "end": END,
             },
+        )
+        graph.add_conditional_edges(
+            "contract_review",
+            lambda state: "repair" if state.get("status") == "contract_review_requested" else self._route_after_build(state),
+            {"repair": "repair", "approve_github": "approve_github", "deliver": "deliver_to_github", "end": END},
         )
         graph.add_conditional_edges(
             "repair",
@@ -79,7 +90,11 @@ class ConversationalServiceWorkflow:
             self._route_after_github_approval,
             {"deliver": "deliver_to_github", "validate": "analyze_ambiguity", "end": END},
         )
-        graph.add_edge("deliver_to_github", "await_github_actions")
+        graph.add_conditional_edges(
+            "deliver_to_github",
+            lambda state: "monitor" if state.get("status") == "delivered" else "end",
+            {"monitor": "await_github_actions", "end": END},
+        )
         graph.add_conditional_edges(
             "await_github_actions",
             self.core.github_actions.route,
@@ -121,6 +136,10 @@ class ConversationalServiceWorkflow:
             state["error"] = f"Ambiguity analysis failed: {exc}"
             return state
         resolved = set(state.get("resolved_ambiguities", []))
+        spec, corrections = apply_grounded_corrections(spec, review.corrections, state.get("user_request", ""), list(state.get("clarification_history", [])), set(state.get("user_updated_fields", [])))
+        state["draft_spec"] = spec
+        state["ir_corrections"] = [*state.get("ir_corrections", []), *corrections]
+        corrected_fields = {correction["field"] for correction in corrections}
         asked_questions = {
             str(turn.get("question", "")).strip().lower()
             for turn in state.get("clarification_history", [])
@@ -128,6 +147,7 @@ class ConversationalServiceWorkflow:
         fresh_items = [
             item for item in review.items
             if item.key not in resolved and item.question.strip().lower() not in asked_questions
+            and item.field not in corrected_fields
         ][:5]
         state["agent_notes"] = ["Conversation workflow reviewed the current spec for unresolved ambiguities."]
         state["ambiguity_items"] = [item.model_dump(mode="json") for item in fresh_items]
@@ -186,6 +206,7 @@ class ConversationalServiceWorkflow:
         if isinstance(response, dict) and response.get("field_updates"):
             updates = dict(response["field_updates"])
             state["draft_spec"] = apply_field_updates(spec, updates)
+            state["user_updated_fields"] = sorted(set(state.get("user_updated_fields", [])) | set(updates))
             history = list(state.get("clarification_history", []))
             raw_answer = str(response.get("raw_answer") or f"Corrected fields: {', '.join(updates)}")
             history.append({"question": item_data["question"], "answer": raw_answer})
@@ -229,6 +250,7 @@ class ConversationalServiceWorkflow:
             state["error"] = None
             return state
         state["draft_spec"] = apply_field_updates(spec, {item_data["field"]: answer})
+        state["user_updated_fields"] = sorted(set(state.get("user_updated_fields", [])) | {item_data["field"]})
         history = list(state.get("clarification_history", []))
         raw_answer = response.get("raw_answer") if isinstance(response, dict) else None
         history.append({"question": item_data["question"], "answer": str(raw_answer or answer), "field": item_data["field"]})
@@ -256,6 +278,7 @@ class ConversationalServiceWorkflow:
         response = interrupt({"kind": "approval", "question": "Should I generate and build this service?", "summary": summary})
         if isinstance(response, dict) and response.get("field_updates"):
             state["draft_spec"] = apply_field_updates(spec, dict(response["field_updates"]))
+            state["user_updated_fields"] = sorted(set(state.get("user_updated_fields", [])) | set(response["field_updates"]))
             state["gate_confirmed"] = False
             state["status"] = "approval_updated"
             state["error"] = None
@@ -307,6 +330,8 @@ class ConversationalServiceWorkflow:
     @staticmethod
     def _route_after_build(state: WorkflowState) -> str:
         if state.get("status") == "verified":
+            if state.get("contract_review_required") and not state.get("contract_review_complete"):
+                return "contract_review"
             delivery = state.get("github_delivery", {})
             if delivery.get("owner") and delivery.get("repo"):
                 return "deliver"

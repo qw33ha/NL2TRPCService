@@ -1,2 +1,5 @@
 nl2service/evaluation/*.jsonl text eol=lf
 nl2service/evaluation/benchmark-manifest.json text eol=lf
+nl2service/evaluation/mysql-composition-manifest.json text eol=lf
+nl2service/knowledge/** text eol=lf
+nl2service/evaluation/redis-kafka*.json text eol=lf

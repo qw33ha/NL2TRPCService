@@ -26,6 +26,12 @@ class RefinedRender(BaseModel):
     summary: list[str] = Field(default_factory=list)
 
 
+class RefinedImplementation(BaseModel):
+    implementation: str = Field(min_length=1,description="Complete Go source for the bound primary implementation file, including package/imports and the requested method.")
+    supporting_files: dict[str,str] = Field(default_factory=dict,description="Only new/changed Go helper files; no wiring, module/configuration or checksum files.")
+    summary: list[str] = Field(default_factory=list)
+
+
 @dataclass(slots=True)
 class DraftBuildResult:
     spec: ServiceSpec
@@ -71,11 +77,18 @@ class MainLLMAgent:
             raise MainAgentError("There are no rendered files to refine.")
         model_name, parsed = self._invoke_structured(
             action="repair_code" if session.repair_feedback else "refine_code",
-            schema=RefinedRender,
+            schema=RefinedImplementation if session.generation_contract else RefinedRender,
             messages=self._build_refine_messages(session),
         )
         files = dict(session.rendered_files)
-        files.update(parsed.files)
+        if session.generation_contract:
+            contract=session.generation_contract
+            primary=contract['implementation_file']
+            managed=set(contract['managed_files'])|{primary,'go.sum'}
+            files.update({path:content for path,content in parsed.supporting_files.items() if path.endswith('.go') and path not in managed})
+            files[primary]=parsed.implementation
+        else:
+            files.update({path:content for path,content in parsed.files.items() if path!='go.sum'})
         # The simple HTTP skeleton owns server startup and route registration.
         # Model changes belong in handler bodies; replacing the framework router
         # can compile while silently serving 404 for every endpoint.
@@ -174,6 +187,8 @@ class MainLLMAgent:
     @staticmethod
     def _build_refine_messages(session: MainAgentSessionState) -> list[Any]:
         sections = [f"Original user request:\n{session.user_request.strip()}"]
+        if session.generation_contract:
+            sections.append('Bound authored-module contract:\n'+str(session.generation_contract)+'\nReturn the complete primary Go source in implementation and only Go helper changes in supporting_files. Platform wiring is already implemented and immutable.')
         if session.draft_spec is not None:
             sections.append(
                 "Final structured spec:\n"
@@ -207,6 +222,7 @@ class MainLLMAgent:
         rendered_blocks = [
             f"FILE: {path}\n```\n{content}\n```"
             for path, content in session.rendered_files.items()
+            if path!='go.sum'
         ]
         sections.append("Rendered scaffold files:\n" + "\n\n".join(rendered_blocks))
         return [

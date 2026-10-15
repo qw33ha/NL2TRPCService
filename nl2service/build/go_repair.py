@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
+from pathlib import PurePosixPath
 
 
 _UNUSED_IMPORT = re.compile(
-    r'(?:vet:\s+)?\.?/?(?P<file>[^:\n]+\.go):\d+:\d+:\s+"(?P<import>[^"]+)" imported and not used'
+    r'(?:vet:\s+)?\.?/?(?P<file>[^:\n]+\.go):\d+:\d+:\s+"(?P<import>[^"]+)" imported(?: as [A-Za-z_]\w*)? and not used'
 )
 
 
@@ -22,6 +23,42 @@ class DeterministicGoRepair:
     def apply(self, files: dict[str, str], feedback: str) -> GoRepairResult:
         repaired = dict(files)
         notes: list[str] = []
+
+        module_match = re.search(r"(?m)^\s*module\s+(\S+)", repaired.get("go.mod", ""))
+        if module_match:
+            module = module_match.group(1)
+            for missing in set(re.findall(r"cannot find module providing package ([^\s:]+)", feedback)):
+                if not missing.startswith(module + "/"):
+                    continue
+                relative = missing[len(module)+1:]
+                parts = relative.split("/")
+                if any(part in {"", ".", ".."} or not re.fullmatch(r"[A-Za-z0-9_-]+", part) for part in parts):
+                    continue
+                package = parts[-1]
+                # Move only a misplaced package from a directory that already
+                # contains a different package. Never synthesize missing code.
+                declarations = {}
+                for path, content in repaired.items():
+                    if path.endswith(".go"):
+                        cleaned = re.sub(r"//[^\n]*|/\*[\s\S]*?\*/", "", content)
+                        declaration = re.search(r"(?m)^\s*package\s+(\w+)\b", cleaned)
+                        if declaration:
+                            declarations[path] = declaration.group(1)
+                moves = []
+                for path, declared in declarations.items():
+                    parent = PurePosixPath(path).parent
+                    if declared != package or str(parent) == relative or "go:embed" in repaired[path]:
+                        continue
+                    if not any(PurePosixPath(other).parent == parent and value != package for other, value in declarations.items()):
+                        continue
+                    target = str(PurePosixPath(relative) / PurePosixPath(path).name)
+                    moves.append((path, target))
+                targets = [target for _, target in moves]
+                if not moves or len(set(targets)) != len(targets) or any(target in repaired for target in targets):
+                    continue
+                for path, target in moves:
+                    repaired[target] = repaired.pop(path)
+                    notes.append(f"Relocated existing package {package} from {path} to {target} to satisfy local import {missing}.")
 
         if "not enough arguments in call to s.Close" in feedback and "want (chan struct{})" in feedback:
             for path, content in list(repaired.items()):
@@ -74,7 +111,7 @@ class DeterministicGoRepair:
                 )
 
         for match in _UNUSED_IMPORT.finditer(feedback):
-            path = match.group("file").replace("\\", "/").lstrip("./")
+            path = match.group("file").strip().replace("\\", "/").lstrip("./")
             import_path = match.group("import")
             actual_path = self._resolve_path(repaired, path)
             if actual_path is None:

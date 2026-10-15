@@ -1,0 +1,24 @@
+package sarama
+
+import (
+	"encoding/binary"
+	"time"
+)
+
+const (
+	isTransactionalMask   = 0x10
+	controlMask           = 0x20
+	maximumRecordOverhead = 5*binary.MaxVarintLen32 + binary.MaxVarintLen64 + 1
+)
+
+// RecordHeader stores key and value for a record header
+type RecordHeader struct {
+	Key   []byte
+	Value []byte
+}
+
+func (h *RecordHeader) encode(pe packetEncoder) error {
+	if err := pe.putVarintBytes(h.Key); err != nil {
+		return err
+	}
+	return pe.putVarintBytes(h.Value)

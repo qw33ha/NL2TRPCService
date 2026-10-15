@@ -1,0 +1,28 @@
+func handleTransaction(ctx context.Context, db *sql.DB, req *Request) (err error) {
+	var tx *sql.Tx
+	if tx, err = db.BeginTx(ctx, req.txOpts); err != nil {
+		return
+	}
+	if err := req.tx(tx); err != nil {
+		if e := tx.Rollback(); e != nil {
+			return e
+		}
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		if e := tx.Rollback(); e != nil {
+			return e
+		}
+		return err
+	}
+	return
+}
+
+func (ct *ClientTransport) newSqlxDB(db *sql.DB, unsafe bool) *sqlx.DB {
+	sqlxdb := sqlx.NewDb(db, ct.DriverName)
+	if unsafe {
+		return sqlxdb.Unsafe()
+	}
+	return sqlxdb
+}
+

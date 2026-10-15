@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, get_args
+import re
 
 import yaml
 
@@ -11,8 +12,26 @@ def apply_field_updates(spec: ServiceSpec, updates: dict[str, Any]) -> ServiceSp
     data = spec.model_dump(mode="python")
     for field_path, raw_value in updates.items():
         value = _parse_value(raw_value) if isinstance(raw_value, str) else raw_value
+        if isinstance(raw_value, str) and _is_boolean_field(spec, field_path):
+            # Human clarification may contain an explicit boolean followed by an
+            # explanation. Limit this coercion to typed boolean fields.
+            match = re.match(r"^\s*(true|false|yes|no)\s*[;:.!]", raw_value, re.IGNORECASE)
+            if match:
+                value = match.group(1).lower() in {"true", "yes"}
         _set_nested_value(data, field_path, value)
     return ServiceSpec.model_validate(data)
+
+
+def _is_boolean_field(spec: ServiceSpec, field_path: str) -> bool:
+    cursor: Any = spec
+    try:
+        parts = field_path.split(".")
+        for part in parts[:-1]:
+            cursor = cursor[int(part)] if isinstance(cursor, list) else getattr(cursor, part)
+        annotation = type(cursor).model_fields[parts[-1]].annotation
+        return annotation is bool or bool in get_args(annotation)
+    except (AttributeError, KeyError, IndexError, TypeError, ValueError):
+        return False
 
 
 def _parse_value(raw_value: str) -> Any:

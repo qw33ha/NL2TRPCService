@@ -1,0 +1,115 @@
+// Package goredis extend github.com/go-redis/redis to add support for the trpc-go ecosystem.
+package goredis
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"fmt"
+	"net"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	redis "github.com/redis/go-redis/v9"
+	"trpc.group/trpc-go/trpc-database/goredis/internal/joinfilters"
+	"trpc.group/trpc-go/trpc-database/goredis/internal/options"
+	trpc "trpc.group/trpc-go/trpc-go"
+	"trpc.group/trpc-go/trpc-go/client"
+	"trpc.group/trpc-go/trpc-go/codec"
+	"trpc.group/trpc-go/trpc-go/errs"
+	"trpc.group/trpc-go/trpc-go/naming/selector"
+)
+
+// ContextKeyType go redis context msg key type
+type ContextKeyType string
+
+const (
+	ContextKeyName ContextKeyType = "trpc-go-redis" // context key
+
+	RetRedisNil     = 30001 // redis field doesn't exist
+	RetCASMismatch  = 30002 // cas confict
+	RetRedisCmdFail = 30003 // redis cmd fail
+	RetParamInvalid = 30004 // invalid parameter
+	RetTypeMismatch = 30005 // type mismatch
+	RetLockOccupied = 30006 // lock is already occupied
+	RetLockExpired  = 30007 // lock has expired
+	RetLockRobbed   = 30008 // lock has been seized
+	RetKeyNotFound  = 30009 // key doesn't exist or expired, it will alert but RetRedisNil will not
+	RetAddCronFail  = 30010 // fail to add the cron job
+	RetInitFail     = 30011 // fail to initiate
+	RetLockExtend   = 30012 // fail to renew the lock
+
+	InfinityMin = "-inf" // negative infinity
+	InfinityMax = "+inf" // positive infinity
+
+	calleeApp        = "[redis]"              // redis callee app.
+	appKey           = "overrideCalleeApp"    // metadata app key.
+	serverKey        = "overrideCalleeServer" // metadata server key.
+	CronSelectorName = "cron"                 // cron
+)
+
+func init() {
+	// keep compatibility with trpc-go.
+	if selector.Get(options.RedisSelectorName) == nil {
+		selector.Register(options.RedisSelectorName, selector.NewIPSelector())
+	}
+	if selector.Get(options.RedissSelectorName) == nil {
+		selector.Register(options.RedissSelectorName, selector.NewIPSelector())
+	}
+	if selector.Get(CronSelectorName) == nil {
+		selector.Register(CronSelectorName, selector.NewIPSelector())
+	}
+}
+
+var (
+	ErrM007RedisNil = errs.New(RetRedisNil, redis.Nil.Error())   // redis.Nil error.
+	ErrParamInvalid = errs.New(RetParamInvalid, "param invalid") // invalid parameter.
+	ErrTypeMismatch = errs.New(RetTypeMismatch, "type mismatch") // type missmatch.
+	ErrLockOccupied = errs.New(RetLockOccupied, "lock occupied") // lock is occupied.
+
+	MaxRspLen    int64 = 100 // max response length.
+	matricsTable       = map[int32]string{
+		int32(errs.RetClientTimeout): context.DeadlineExceeded.Error(),
+		RetCASMismatch:               "cas mismatch",
+		RetLockExpired:               "lock expired",
+		RetLockRobbed:                "lock robbed",
+		RetKeyNotFound:               "key not found",
+	}
+)
+
+// New creates a redis client.
+var New = func(name string, opts ...client.Option) (
+	redis.UniversalClient, error) {
+	// parse configuration file.
+	filters, err := joinfilters.New(name, opts...)
+	if err != nil {
+		return nil, errs.Wrapf(err, RetInitFail, "joinfilters.NewFilters fail %v", err)
+	}
+	trpcOptions, err := filters.LoadClientOptions()
+	if err != nil {
+		return nil, errs.Wrapf(err, RetInitFail, "filters.GetClientOptions fail %v", err)
+	}
+	option, err := options.New(trpcOptions)
+	if err != nil {
+		return nil, err
+	}
+	redisClient := redis.NewUniversalClient(option.RedisOption)
+	redisHook, err := newHook(filters, option)
+	if err != nil {
+		return nil, err
+	}
+	redisClient.AddHook(redisHook)
+	// check the connection health
+	if _, err = redisClient.Ping(trpc.BackgroundContext()).Result(); err != nil {
+		return nil, errs.Wrapf(err, RetInitFail, "New Ping fail %v", err)
+	}
+	return redisClient, nil
+}
+
+// Req trpc filter request.
+type Req struct {
+	Cmd string
+}
+
+// Rsp trpc filter response.
